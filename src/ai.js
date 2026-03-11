@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('./config');
+const logger = require('./logger');
 
 /**
  * Direct Azure OpenAI REST API call (no LangChain needed).
@@ -79,13 +80,15 @@ ${JSON.stringify(rawData, null, 2)}
 Верни только JSON объект: { "sql": "..." }`;
 
     try {
+        logger.debug(`AI: Starting Schema SQL generation for hotel...`);
         const text = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SQL);
         // Strip possible markdown code block wrapper
         const clean = text.replace(/^```[a-z]*\n?/i, '').replace(/```$/m, '').trim();
         const parsed = JSON.parse(clean);
+        logger.debug('AI: Schema SQL generated successfully.');
         return parsed.sql || null;
     } catch (err) {
-        console.error('AI Schema Mapping Error:', err.response?.data || err.message);
+        logger.error(`AI Schema Mapping Error: ${err.response?.data || err.message}`);
         return null;
     }
 }
@@ -158,12 +161,41 @@ Business Goal: ${hotelData.business_goal}
 Target Language: ${hotelData.language}`;
 
     try {
+        logger.debug(`AI: Starting Script Writer for: ${hotelData.hotel_name}`);
         const scriptText = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SCRIPT);
+        logger.debug('AI: Script Writer finished.');
         return scriptText.trim();
     } catch (err) {
-        console.error('AI Script Writer Error:', err.response?.data || err.message);
+        logger.error(`AI Script Writer Error: ${err.response?.data || err.message}`);
         return null;
     }
 }
 
-module.exports = { generateSchemaSQL, generateScript };
+/**
+ * AI: Извлекает чистое название отеля из рекламного текста или URL.
+ */
+async function extractCleanHotelName(input) {
+    if (!input) return null;
+
+    const systemMessage = `Ты — эксперт по анализу данных.
+Твоя задача — извлечь чистое официальное название отеля из входной строки (это может быть URL, рекламный слоган или описание).
+- Если во входной строке есть домен (например, theplazany.com), верни наиболее вероятное название (The Plaza).
+- Если это рекламное описание ("Iconic luxury hotel near Central Park"), попытайся найти реальное имя.
+- Если название найти невозможно, верни "NULL".
+- Возвращай ТОЛЬКО название отеля, без лишних слов.`;
+
+    const userMessage = `Извлеки название отеля из этой строки: "${input}"`;
+
+    try {
+        logger.debug(`AI: Extracting clean name for: "${input}"`);
+        const result = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SQL);
+        const clean = result.trim();
+        logger.debug(`AI: Extracted Name: "${clean}"`);
+        return clean.toUpperCase() === 'NULL' ? null : clean;
+    } catch (err) {
+        logger.error(`AI Name Extraction Error: ${err.response?.data || err.message}`);
+        return null;
+    }
+}
+
+module.exports = { generateSchemaSQL, generateScript, extractCleanHotelName };

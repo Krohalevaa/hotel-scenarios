@@ -18,8 +18,8 @@ module.exports = {
   AZURE_OPENAI_DEPLOYMENT_SQL: process.env.AZURE_OPENAI_DEPLOYMENT_SQL || 'o3-mini',
   AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION,
   SMTP_HOST: process.env.SMTP_HOST || "smtp.yandex.ru",
-  SMTP_PORT: process.env.SMTP_PORT || 465,
-  SMTP_SECURE: true,
+  SMTP_PORT: process.env.SMTP_PORT || 587,
+  SMTP_SECURE: process.env.SMTP_PORT === "465",
   SMTP_USER: process.env.SMTP_USER || "anyakrohalevaa@yandex.ru",
   SMTP_PASS: process.env.SMTP_PASS || ""
 };

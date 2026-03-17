@@ -1,5 +1,26 @@
 const axios = require('axios');
 const config = require('./config');
+const logger = require('./logger');
+
+// Хелпер для повторных попыток (Retry Pattern)
+async function fetchWithRetry(requestFn, maxRetries = 2) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await requestFn();
+        } catch (err) {
+            const status = err.response?.status;
+            const shouldRetry = status === 429 || (status >= 500 && status <= 504) || err.code === 'ECONNABORTED';
+
+            if (shouldRetry && attempt < maxRetries) {
+                const delay = Math.pow(2, attempt) * 2000;
+                logger.warn(`Scraper retry attempt ${attempt + 1} after ${delay}ms due to error: ${err.message}`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            throw err;
+        }
+    }
+}
 
 async function scrapeHotelWebsite(url) {
     try {
@@ -19,10 +40,11 @@ async function scrapeHotelWebsite(url) {
             ]
         };
 
-        const response = await axios.post(config.SCRAPER_API_URL, payload, {
+        const response = await fetchWithRetry(() => axios.post(config.SCRAPER_API_URL, payload, {
             params: { token: 'supersecret' },
-            headers: { 'Content-Type': 'application/json' }
-        });
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 65000 // Чуть больше чем таймаут в payload
+        }));
 
         return response.data;
     } catch (error) {

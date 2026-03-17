@@ -36,8 +36,10 @@ async function generateSchemaSQL(rawData) {
 1. Проанализируй входные данные. Определи, какие поля есть, а каких нет.
 2. Определи \`hotel_type\` (resort, business, etc.) на основе описания и удобств, если он не указан явно.
 3. Сформулируй \`positioning_reasons\` (почему люди едут сюда?) и \`main_trip_purposes\` из контекста.
-4. Если нет координат (\`geo_lat\`, \`geo_lon\`), реши оставить их NULL.
-5. Проверь строки на наличие одинарных кавычек (') и экранируй их (заменяй на '').
+4. Если в JSON переданы координаты (geo_lat, geo_lon), ты ОБЯЗАН использовать их. Не пытайся решить, что они неверные или лишние.
+5. ЭКРАНИРОВАНИЕ (ОЧЕНЬ ВАЖНО): 
+   - Для обычных строк (String): вставляй как 'значение', удваивай кавычки внутри (' -> '').
+   - Для массивов (Array(String)): вставляй как ['эл1', 'эл2']. НЕ ПИШИ [''значение''], используй только одну кавычку для обрамления элемента массива. Если внутри элемента есть кавычка - удваивай.
 
 ### 2. СТРОГАЯ СХЕМА ТАБЛИЦЫ (Target Schema)
 Ты можешь использовать ТОЛЬКО эти колонки. Запрещено выдумывать свои (никаких \`name\`, \`desc\` и т.д.).
@@ -67,8 +69,8 @@ async function generateSchemaSQL(rawData) {
   "sql": "INSERT INTO hotel_profile (...) VALUES (...);"
 }
 
-### 4. ОБРАБОТКА КООРДИНАТ:
-   - Вставляй как есть (Float64), если null — ставь NULL.`;
+### 4. КРИТИЧЕСКИЕ ПРАВИЛА ПО КООРДИНАТАМ:
+   - Вставляй СТРОГО те значения geo_lat и geo_lon, которые переданы во входящем JSON. ЗАПРЕЩЕНО заменять их на NULL, если во входных данных есть числа.`;
 
     const userMessage = `Вот сырой JSON с данными об отеле:
 ${JSON.stringify(rawData, null, 2)}
@@ -174,20 +176,27 @@ Target Language: ${hotelData.language}`;
 /**
  * AI: Извлекает чистое название отеля из рекламного текста или URL.
  */
-async function extractCleanHotelName(input) {
-    if (!input) return null;
+async function extractCleanHotelName(input, url = '') {
+    if (!input && !url) return null;
 
     const systemMessage = `Ты — эксперт по анализу данных.
-Твоя задача — извлечь чистое официальное название отеля из входной строки (это может быть URL, рекламный слоган или описание).
-- Если во входной строке есть домен (например, theplazany.com), верни наиболее вероятное название (The Plaza).
-- Если это рекламное описание ("Iconic luxury hotel near Central Park"), попытайся найти реальное имя.
-- Если название найти невозможно, верни "NULL".
+Твоя задача — извлечь чистое официальное название отеля.
+У тебя есть:
+1. Входная строка (может быть URL, рекламный слоган или заголовок страницы).
+2. URL сайта отеля (для контекста).
+
+ПРАВИЛА:
+- Если входная строка — это рекламный слоган ("Luxury Hotel Near Central Park"), попытайся найти реальное название в этой строке ИЛИ извлеки его из предоставленного URL (например, theplazany.com -> The Plaza).
+- Всегда отдавай приоритет реальному имени собственному.
+- Если название абсолютно невозможно найти, верни "NULL".
 - Возвращай ТОЛЬКО название отеля, без лишних слов.`;
 
-    const userMessage = `Извлеки название отеля из этой строки: "${input}"`;
+    const userMessage = `Входная строка: "${input}"
+URL сайта: "${url}"
+Извлеки название отеля:`;
 
     try {
-        logger.debug(`AI: Extracting clean name for: "${input}"`);
+        logger.debug(`AI: Extracting clean name for: "${input}" (URL context: ${url})`);
         const result = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SQL);
         const clean = result.trim();
         logger.debug(`AI: Extracted Name: "${clean}"`);
@@ -198,4 +207,48 @@ async function extractCleanHotelName(input) {
     }
 }
 
-module.exports = { generateSchemaSQL, generateScript, extractCleanHotelName };
+/**
+ * AI: Предсказывает точное название отеля для OpenStreetMap и ожидаемый адрес.
+ */
+async function predictOsmHotelData(hotelName, city, url = '') {
+    const systemMessage = `Ты — эксперт по картографии и OpenStreetMap (OSM).
+Твоя задача — проанализировать "грязное" название отеля, город и URL, и предсказать, под каким именно именем этот отель МОЖЕТ быть записан в базе OpenStreetMap (тег name).
+
+ПРАВИЛА:
+1. Очисти название от маркетингового мусора (Luxury, Near, Best, Official Site и т.д.).
+2. Учитывай локальные особенности (например, в OSM отели часто записаны с брендом: "The Pierre, a Taj Hotel").
+3. Если название содержит домен (theplazany.com), выдели из него реальное имя ("The Plaza").
+4. СТРОГО ЗАПРЕЩЕНО галлюцинировать. Если ты не уверен в существовании отеля, верни максимально очищенную версию оригинального названия.
+5. Выдай также ожидаемый адрес отеля, если можешь его определить по названию и городу.
+
+Верни СТРОГО JSON формат. Никакого лишнего текста.
+Формат ответа:
+{
+  "osm_target_name": "Точное Название для поиска в OSM и записи в БД",
+  "expected_address": "Улица, Дом, Район"
+}
+6. Это название будет ИСПОЛЬЗОВАНО как основное название отеля в нашей базе данных, поэтому оно должно быть максимально официальным и точным.`;
+
+    const userMessage = `Отель: "${hotelName}"
+Город: "${city}"
+URL: "${url}"
+Предскажи данные для OSM:`;
+
+    try {
+        logger.debug(`AI: Predicting OSM internal name for: "${hotelName}" in ${city}`);
+        const result = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SQL);
+        const clean = result.replace(/^```[a-z]*\n?/i, '').replace(/```$/m, '').trim();
+        const parsed = JSON.parse(clean);
+        
+        logger.debug(`AI: OSM Prediction: "${parsed.osm_target_name}"`);
+        return {
+            osm_target_name: parsed.osm_target_name || hotelName,
+            expected_address: parsed.expected_address || null
+        };
+    } catch (err) {
+        logger.error(`AI OSM Prediction Error: ${err.message}`);
+        return { osm_target_name: hotelName, expected_address: null };
+    }
+}
+
+module.exports = { generateSchemaSQL, generateScript, extractCleanHotelName, predictOsmHotelData };

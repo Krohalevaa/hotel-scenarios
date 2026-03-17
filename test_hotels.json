@@ -1,0 +1,72 @@
+[
+    {
+        "hotel_website_url": "https://www.theplazany.com/",
+        "business_goal": "Increase direct bookings",
+        "city": "New York",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.bellagio.com/",
+        "business_goal": "Promote luxury suites",
+        "city": "Las Vegas",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.beverlyhillshotel.com/",
+        "business_goal": "Highlight historical heritage",
+        "city": "Los Angeles",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.fourseasons.com/chicagofs/",
+        "business_goal": "Attract business travelers",
+        "city": "Chicago",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.ritzcarlton.com/en/hotels/georgetown",
+        "business_goal": "Promote weekend getaways",
+        "city": "Washington DC",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.fontainebleau.com/",
+        "business_goal": "Drive spa reservations",
+        "city": "Miami Beach",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/hotels/travel/sfomr-the-st-regis-san-francisco/",
+        "business_goal": "Increase dining bookings",
+        "city": "San Francisco",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hoteljerome.com/",
+        "business_goal": "Promote ski season offers",
+        "city": "Aspen",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.halekulani.com/",
+        "business_goal": "Highlight ocean view rooms",
+        "city": "Honolulu",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thebroadmoor.com/",
+        "business_goal": "Promote golf packages",
+        "city": "Colorado Springs",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    }
+]

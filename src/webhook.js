@@ -4,37 +4,75 @@ const { publishToQueue } = require('./rabbitmq');
 
 const router = express.Router();
 
-router.post('/generate-script', async (req, res) => {
-    // 1. Quick Status Response (n8n Webhook Node + Respond to Webhook Node)
-    res.json({
-        status: "success",
-        message: "Dear user, please check your email."
-    });
-
-    // 2. Initialize Parameters
+/**
+ * Helper to process a single hotel (Scrape -> Extract -> Queue)
+ */
+async function processSingleHotel(hotelRequest) {
     const context = {
-        request_id: Date.now().toString(),
+        request_id: Date.now().toString() + Math.random().toString(16).slice(2),
         created_at: new Date().toISOString(),
-        hotel_website_url: req.body.hotel_website_url,
-        business_goal: req.body.business_goal,
-        contact_email: req.body.contact_email,
-        city: req.body.city,
+        hotel_website_url: hotelRequest.hotel_website_url,
+        business_goal: hotelRequest.business_goal,
+        contact_email: hotelRequest.contact_email,
+        city: hotelRequest.city,
         hotel_context: "",
         status: "new",
-        language: req.body.language || "English"
+        language: hotelRequest.language || "English"
     };
 
+    let hotelData;
     try {
-        // 3. Scrape Hotel Website
+        console.log(`Processing entry: ${context.hotel_website_url}`);
         const rawData = await scrapeHotelWebsite(context.hotel_website_url);
+        hotelData = extractHotelInfo(rawData, context);
+    } catch (e) {
+        console.error(`Scraping failed for ${context.hotel_website_url}, using fallback:`, e.message);
+        // Fallback: Create minimal data so processing can continue
+        const domain = new URL(context.hotel_website_url).hostname.replace('www.', '');
+        hotelData = {
+            hotel_name: domain, // AI will try to clean this later in worker.js
+            description: "Website could not be scraped. Processing with minimal info.",
+            city: context.city,
+            hotel_website_url: context.hotel_website_url,
+            contact_email: context.contact_email,
+            business_goal: context.business_goal,
+            language: context.language,
+            amenities: [],
+            special_offers: []
+        };
+    }
 
-        // 4. Extract Hotel Info
-        const hotelData = extractHotelInfo(rawData, context);
-
-        // 5. RabbitMQ: Publish
+    try {
         await publishToQueue(hotelData);
     } catch (e) {
-        console.error("Error in webhook background process:", e.message);
+        console.error(`Error publishing to queue for ${context.hotel_website_url}:`, e.message);
+    }
+}
+
+router.post('/generate-script', async (req, res) => {
+    res.json({
+        status: "success",
+        message: "Request received. Please check your email shortly."
+    });
+
+    // Background process for single hotel
+    processSingleHotel(req.body);
+});
+
+router.post('/api/bulk-generate-script', async (req, res) => {
+    const hotels = req.body;
+    if (!Array.isArray(hotels)) {
+        return res.status(400).json({ status: "error", message: "Expected an array of hotels." });
+    }
+
+    res.json({
+        status: "success",
+        message: `Bulk processing started for ${hotels.length} hotels. Please check your email.`
+    });
+
+    // Background process for multiple hotels
+    for (const hotel of hotels) {
+        await processSingleHotel(hotel);
     }
 });
 

@@ -18,15 +18,24 @@ function ensureSupabaseConfigured() {
 function normalizeAttraction(attraction) {
     if (typeof attraction === 'string') {
         return {
-            attraction_name: attraction,
-            category: 'general'
+            attraction_name: attraction
         };
     }
 
     return {
-        attraction_name: attraction?.name || attraction?.attraction_name || 'Unknown attraction',
-        category: attraction?.category || 'general'
+        attraction_name: attraction?.name || attraction?.attraction_name || 'Unknown attraction'
     };
+}
+
+function normalizeKeyFeatures(features) {
+    if (!Array.isArray(features)) {
+        return [];
+    }
+
+    return features
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 5);
 }
 
 async function saveScript(scriptData) {
@@ -36,7 +45,7 @@ async function saveScript(scriptData) {
         id: scriptData.id,
         user_id: scriptData.user_id,
         contact_email: scriptData.contact_email || null,
-        hotel_website_url: scriptData.hotel_website_url || null,
+        hotel_url: scriptData.hotel_url || scriptData.hotel_website_url || null,
         business_goal: scriptData.business_goal || null,
         city: scriptData.city || null,
         language: scriptData.language || 'Russian',
@@ -51,32 +60,31 @@ async function saveScript(scriptData) {
         }
     });
 
-    const query = supabase
-        .from('video_scripts')
+    const { data, error } = await supabase
+        .from('hotel_scenarios')
         .upsert(payload, { onConflict: 'id' })
         .select()
         .single();
-
-    const { data, error } = await query;
 
     if (error) {
         logger.error(`Supabase saveScript error: ${error.message}`);
         throw error;
     }
 
-    logger.info(`Script record saved in Supabase: ${data.id}`);
+    logger.info(`Scenario record saved in Supabase: ${data.id}`);
     return data;
 }
 
-async function saveAttractions(scriptId, attractions) {
+async function saveAttractions(scenarioId, hotelName, attractions) {
     ensureSupabaseConfigured();
 
-    if (!scriptId || !Array.isArray(attractions) || attractions.length === 0) {
+    if (!scenarioId || !Array.isArray(attractions) || attractions.length === 0) {
         return [];
     }
 
     const rows = attractions.map((attraction) => ({
-        script_id: scriptId,
+        scenario_id: scenarioId,
+        hotel_name: hotelName || null,
         ...normalizeAttraction(attraction)
     }));
 
@@ -90,15 +98,50 @@ async function saveAttractions(scriptId, attractions) {
         throw error;
     }
 
-    logger.info(`Saved ${rows.length} attractions for script ${scriptId}.`);
+    logger.info(`Saved ${rows.length} attractions for scenario ${scenarioId}.`);
     return data || [];
 }
 
-async function updateScriptStatus(scriptId, status, finalScript = null) {
+async function saveHotelSourceData(sourceData) {
     ensureSupabaseConfigured();
 
-    if (!scriptId) {
-        throw new Error('scriptId is required to update script status.');
+    if (!sourceData?.scenario_id) {
+        throw new Error('scenario_id is required to save hotel source data.');
+    }
+
+    const payload = {
+        scenario_id: sourceData.scenario_id,
+        hotel_url: sourceData.hotel_url || sourceData.hotel_website_url || null,
+        hotel_name: sourceData.hotel_name || null,
+        city: sourceData.city || null,
+        country: sourceData.country || null,
+        address: sourceData.address || null,
+        latitude: sourceData.latitude ?? sourceData.geo_lat ?? null,
+        longitude: sourceData.longitude ?? sourceData.geo_lon ?? null,
+        attractions_found: Boolean(sourceData.attractions_found),
+        key_features: normalizeKeyFeatures(sourceData.key_features)
+    };
+
+    const { data, error } = await supabase
+        .from('hotel_source_data')
+        .upsert(payload, { onConflict: 'scenario_id' })
+        .select()
+        .single();
+
+    if (error) {
+        logger.error(`Supabase saveHotelSourceData error: ${error.message}`);
+        throw error;
+    }
+
+    logger.info(`Hotel source data saved for scenario ${sourceData.scenario_id}.`);
+    return data;
+}
+
+async function updateScriptStatus(scenarioId, status, finalScript = null) {
+    ensureSupabaseConfigured();
+
+    if (!scenarioId) {
+        throw new Error('scenarioId is required to update script status.');
     }
 
     const updatePayload = {
@@ -110,9 +153,9 @@ async function updateScriptStatus(scriptId, status, finalScript = null) {
     }
 
     const { data, error } = await supabase
-        .from('video_scripts')
+        .from('hotel_scenarios')
         .update(updatePayload)
-        .eq('id', scriptId)
+        .eq('id', scenarioId)
         .select()
         .single();
 
@@ -121,7 +164,7 @@ async function updateScriptStatus(scriptId, status, finalScript = null) {
         throw error;
     }
 
-    logger.info(`Updated script ${scriptId} status to ${status}.`);
+    logger.info(`Updated scenario ${scenarioId} status to ${status}.`);
     return data;
 }
 
@@ -129,7 +172,7 @@ async function getUserScripts(userId) {
     ensureSupabaseConfigured();
 
     const { data, error } = await supabase
-        .from('video_scripts')
+        .from('hotel_scenarios')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
@@ -142,14 +185,14 @@ async function getUserScripts(userId) {
     return data || [];
 }
 
-async function getUserScriptById(userId, scriptId) {
+async function getUserScriptById(userId, scenarioId) {
     ensureSupabaseConfigured();
 
     const { data, error } = await supabase
-        .from('video_scripts')
-        .select('*, hotel_attractions(*)')
+        .from('hotel_scenarios')
+        .select('*, hotel_attractions(*), hotel_source_data(*)')
         .eq('user_id', userId)
-        .eq('id', scriptId)
+        .eq('id', scenarioId)
         .single();
 
     if (error) {
@@ -164,9 +207,9 @@ async function getProfile(userId) {
     ensureSupabaseConfigured();
 
     const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .maybeSingle();
 
     if (error) {
@@ -181,15 +224,17 @@ async function upsertProfile(userId, profileData) {
     ensureSupabaseConfigured();
 
     const payload = {
-        id: userId,
-        full_name: profileData.full_name || null,
+        user_id: userId,
+        first_name: profileData.first_name || null,
+        last_name: profileData.last_name || null,
+        email: profileData.email,
         avatar_url: profileData.avatar_url || null,
         updated_at: new Date().toISOString()
     };
 
     const { data, error } = await supabase
-        .from('profiles')
-        .upsert(payload, { onConflict: 'id' })
+        .from('user_profiles')
+        .upsert(payload, { onConflict: 'user_id' })
         .select()
         .single();
 
@@ -265,8 +310,6 @@ async function uploadAvatar(userId, fileBuffer, contentType = 'image/jpeg') {
     const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
     const publicUrl = data.publicUrl;
 
-    await upsertProfile(userId, { avatar_url: publicUrl });
-
     logger.info(`Avatar uploaded successfully for user ${userId}: ${publicUrl}`);
     return {
         path: filePath,
@@ -278,6 +321,7 @@ async function uploadAvatar(userId, fileBuffer, contentType = 'image/jpeg') {
 module.exports = {
     saveScript,
     saveAttractions,
+    saveHotelSourceData,
     updateScriptStatus,
     getUserScripts,
     getUserScriptById,

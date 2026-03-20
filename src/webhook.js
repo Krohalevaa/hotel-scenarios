@@ -19,6 +19,14 @@ function parseBase64Image(dataUrl) {
     };
 }
 
+function splitFullName(fullName) {
+    const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+    return {
+        first_name: parts[0] || null,
+        last_name: parts.slice(1).join(' ') || null
+    };
+}
+
 /**
  * Helper to process a single hotel (Scrape -> Extract -> Queue)
  */
@@ -77,12 +85,17 @@ router.post('/generate-script', requireAuth, async (req, res) => {
         contact_email: req.body.contact_email || req.user.email
     };
 
+    logger.info(`[generate-script] Accepted request: user=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'Russian'}`);
+
     res.json({
         status: 'success',
         message: 'Request received. Please check your email shortly.'
     });
 
-    processSingleHotel(payload);
+    processSingleHotel(payload).catch((error) => {
+        logger.error(`[generate-script] Background processing failed for user=${payload.user_id}, hotelUrl=${payload.hotel_website_url}: ${error.message}`);
+        logger.error(error.stack);
+    });
 });
 
 router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
@@ -90,6 +103,8 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
     if (!hotels || !Array.isArray(hotels)) {
         return res.status(400).json({ error: 'Expected an array of hotels.' });
     }
+
+    logger.info(`[bulk-generate-script] Accepted batch: user=${req.user.id}, count=${hotels.length}`);
 
     res.json({ message: `Started processing ${hotels.length} hotels in batches. Check logs for progress.` });
 
@@ -142,9 +157,21 @@ router.get('/api/me/scripts/:id', requireAuth, async (req, res) => {
 
 router.put('/api/me/profile', requireAuth, async (req, res) => {
     try {
-        const full_name = (req.body.full_name || '').trim();
-        const profile = await db.upsertProfile(req.user.id, { full_name });
-        res.json({ data: profile });
+        const fullName = (req.body.full_name || '').trim();
+        const { first_name, last_name } = splitFullName(fullName);
+        const profile = await db.upsertProfile(req.user.id, {
+            first_name,
+            last_name,
+            email: req.user.email,
+            avatar_url: req.body.avatar_url || undefined
+        });
+
+        res.json({
+            data: {
+                ...profile,
+                full_name: [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
+            }
+        });
     } catch (error) {
         logger.error(`Failed to update profile: ${error.message}`);
         res.status(500).json({ error: 'Failed to update profile.' });
@@ -160,11 +187,19 @@ router.post('/api/me/avatar', requireAuth, async (req, res) => {
 
         const { buffer, contentType } = parseBase64Image(avatar);
         const upload = await db.uploadAvatar(req.user.id, buffer, contentType);
-        const profile = await db.getProfile(req.user.id);
+        const existingProfile = await db.getProfile(req.user.id);
+        const profile = await db.upsertProfile(req.user.id, {
+            first_name: existingProfile?.first_name || req.user.user_metadata?.first_name || null,
+            last_name: existingProfile?.last_name || req.user.user_metadata?.last_name || null,
+            email: existingProfile?.email || req.user.email,
+            avatar_url: upload.publicUrl
+        });
+
         res.json({
             data: {
                 ...upload,
-                avatar_url: profile?.avatar_url || upload.publicUrl
+                avatar_url: profile?.avatar_url || upload.publicUrl,
+                full_name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
             }
         });
     } catch (error) {
@@ -176,11 +211,19 @@ router.post('/api/me/avatar', requireAuth, async (req, res) => {
 router.get('/api/me/profile', requireAuth, async (req, res) => {
     try {
         const profile = await db.getProfile(req.user.id);
+        const firstName = profile?.first_name || req.user.user_metadata?.first_name || null;
+        const lastName = profile?.last_name || req.user.user_metadata?.last_name || null;
+
         res.json({
             data: {
-                id: req.user.id,
-                email: req.user.email,
-                ...(profile || {})
+                user_id: req.user.id,
+                email: profile?.email || req.user.email,
+                first_name: firstName,
+                last_name: lastName,
+                full_name: [firstName, lastName].filter(Boolean).join(' ').trim(),
+                avatar_url: profile?.avatar_url || null,
+                created_at: profile?.created_at || null,
+                updated_at: profile?.updated_at || null
             }
         });
     } catch (error) {

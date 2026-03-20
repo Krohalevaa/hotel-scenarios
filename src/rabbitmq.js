@@ -59,6 +59,7 @@ async function declareQueue() {
  * Mirrors n8n node "RabbitMQ: Publish"
  */
 async function publishToQueue(data) {
+    logger.info(`publishToQueue start: hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}", user=${data?.user_id || 'n/a'}, hasEmail=${Boolean(data?.contact_email)}, hasGoal=${Boolean(data?.business_goal)}, city=${data?.city || 'n/a'}`);
     await declareQueue();
 
     const url = `${RABBITMQ_BASE}/api/exchanges/${encodeURIComponent(VHOST)}/${EXCHANGE}/publish`;
@@ -88,10 +89,13 @@ async function publishToQueue(data) {
             throw new Error(`RabbitMQ publish was accepted but not routed. Response: ${stringifyErrorPayload(response.data)}`);
         }
 
+        logger.warn(`RabbitMQ HTTP publish reported success, but HTTP API polling does not return the message. Processing job via in-process fallback to avoid data loss.`);
+        enqueueFallbackJob(data, 'http_api_publish_without_readback');
+
         logger.info(`Published to RabbitMQ: ${data.hotel_name}`);
         return {
             queued: true,
-            fallbackQueued: false
+            fallbackQueued: true
         };
     } catch (err) {
         const reason = `publish_error:${stringifyErrorPayload(err.response?.data || err.message)}`;
@@ -111,37 +115,46 @@ async function publishToQueue(data) {
  */
 async function getOneMessage() {
     const url = `${RABBITMQ_BASE}/api/queues/${encodeURIComponent(VHOST)}/${QUEUE_NAME}/get`;
-    const body = { count: 1, ackmode: 'ack_requeue_false', encoding: 'auto' };
+    const requestBodies = [
+        { count: 1, ackmode: 'ack_requeue_false', encoding: 'auto' },
+        { count: 1, ackmode: 'ack_requeue_false', encoding: 'auto', truncate: 50000 },
+        { count: 1, ackmode: 'ack_requeue_false', encoding: 'auto', vhost: VHOST, name: QUEUE_NAME }
+    ];
 
-    try {
-        const response = await axios.post(url, body, {
-            headers: {
-                Authorization: getAuthHeader(),
-                'Content-Type': 'application/json'
-            },
-            timeout: 15000
-        });
+    for (let attempt = 0; attempt < requestBodies.length; attempt += 1) {
+        const body = requestBodies[attempt];
 
-        const messages = Array.isArray(response.data) ? response.data : [];
-        logger.debug(`RabbitMQ get response: status=${response.status}, messages=${messages.length}, vhost=${VHOST}, queue=${QUEUE_NAME}`);
+        try {
+            const response = await axios.post(url, body, {
+                headers: {
+                    Authorization: getAuthHeader(),
+                    'Content-Type': 'application/json'
+                },
+                timeout: 15000
+            });
 
-        if (messages.length === 0) {
-            return null;
+            const messages = Array.isArray(response.data) ? response.data : [];
+            logger.debug(`RabbitMQ get response: status=${response.status}, messages=${messages.length}, vhost=${VHOST}, queue=${QUEUE_NAME}, attempt=${attempt + 1}`);
+
+            if (messages.length === 0) {
+                continue;
+            }
+
+            const payload = messages[0]?.payload;
+            if (!payload) {
+                logger.warn('RabbitMQ returned a message without payload.');
+                return null;
+            }
+
+            const parsed = JSON.parse(payload);
+            logger.info(`RabbitMQ delivered message for hotel="${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}"`);
+            return parsed;
+        } catch (err) {
+            logger.error(`RabbitMQ get error on attempt ${attempt + 1}: ${stringifyErrorPayload(err.response?.data || err.message)}`);
         }
-
-        const payload = messages[0]?.payload;
-        if (!payload) {
-            logger.warn('RabbitMQ returned a message without payload.');
-            return null;
-        }
-
-        const parsed = JSON.parse(payload);
-        logger.info(`RabbitMQ delivered message for hotel="${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}"`);
-        return parsed;
-    } catch (err) {
-        logger.error(`RabbitMQ get error: ${stringifyErrorPayload(err.response?.data || err.message)}`);
-        return null;
     }
+
+    return null;
 }
 
 /**
@@ -150,6 +163,7 @@ async function getOneMessage() {
  */
 function consumeFromQueue(callback, intervalMs = 30000) {
     logger.info(`Worker polling queue "${QUEUE_NAME}" every ${intervalMs / 1000}s via HTTP API`);
+    logger.info(`RabbitMQ consumer configuration: base=${RABBITMQ_BASE}, vhost=${VHOST}, queue=${QUEUE_NAME}, authConfigured=${Boolean(config.RABBITMQ_AUTH_BASE64)}`);
 
     async function poll() {
         const ts = new Date().toISOString();
@@ -158,6 +172,7 @@ function consumeFromQueue(callback, intervalMs = 30000) {
             const data = await getOneMessage();
             const fallbackJob = !data ? takeFallbackJob() : null;
             const job = data || fallbackJob?.data || null;
+            logger.debug(`[${ts}] Poll result: rabbitMessage=${Boolean(data)}, fallbackJob=${Boolean(fallbackJob)}, pendingFallback=${pendingFallbackJobs.length}`);
 
             if (job) {
                 if (fallbackJob) {

@@ -261,43 +261,41 @@
   <div class="shell">
     <section class="hero">
       <div>
-        <div class="brand">Hotel Scenarios</div>
-        <h1>Личный кабинет для генерации видео-сценариев</h1>
-        <p>
-          Авторизация через Supabase, хранение сценариев в PostgreSQL, управление профилем,
-          аватаркой и историей генераций в одном интерфейсе.
-        </p>
+        <div class="brand" style="color:white;opacity:0.8;">Hotel Scenarios</div>
+        <h1>Сценарии для отелей, которые собираются из данных сайта и гео-аналитики</h1>
+        <p>Сервис сохраняет профиль пользователя, сценарии, найденные достопримечательности и исходные данные отеля в
+          базе данных.</p>
       </div>
 
       <div class="feature-list">
-        <div class="feature">⚡ Генерация сценариев для одного отеля и bulk-режим</div>
-        <div class="feature">🗂 История всех сценариев пользователя со статусами</div>
-        <div class="feature">👤 Профиль, имя и аватарка через Supabase Storage</div>
+        <div class="feature">Профиль пользователя: имя, фамилия, email, avatar, user_id</div>
+        <div class="feature">Сценарии: URL отеля, цель, язык, статус, название отеля и финальный script</div>
+        <div class="feature">Исходные данные: адрес, координаты, страна, ключевые особенности и флаг
+          достопримечательностей</div>
       </div>
     </section>
 
     <section class="panel">
       <div class="brand">Supabase Auth</div>
       <h2>Вход и регистрация</h2>
-      <p class="panel-subtitle">
-        После успешной авторизации пользователь автоматически перенаправляется в кабинет.
-      </p>
+      <p class="panel-subtitle">Авторизация остаётся в Supabase Auth, а профиль пользователя хранится отдельно в таблице
+        приложения.</p>
 
       <div id="message" class="message"></div>
 
       <div class="tabs">
-        <button class="tab active" data-tab="login">Вход</button>
-        <button class="tab" data-tab="register">Регистрация</button>
+        <button id="loginTab" class="tab active" type="button">Вход</button>
+        <button id="registerTab" class="tab" type="button">Регистрация</button>
       </div>
 
       <form id="loginForm" class="form active">
         <div>
           <label for="loginEmail">Email</label>
-          <input id="loginEmail" type="email" placeholder="you@example.com" required>
+          <input id="loginEmail" type="email" autocomplete="email" required>
         </div>
         <div>
           <label for="loginPassword">Пароль</label>
-          <input id="loginPassword" type="password" placeholder="••••••••" required>
+          <input id="loginPassword" type="password" autocomplete="current-password" required>
         </div>
         <button class="submit" type="submit">Войти</button>
       </form>
@@ -306,37 +304,38 @@
         <div class="row">
           <div>
             <label for="firstName">Имя</label>
-            <input id="firstName" type="text" placeholder="Анна" required>
+            <input id="firstName" type="text" autocomplete="given-name" required>
           </div>
           <div>
             <label for="lastName">Фамилия</label>
-            <input id="lastName" type="text" placeholder="Иванова" required>
+            <input id="lastName" type="text" autocomplete="family-name" required>
           </div>
         </div>
         <div>
           <label for="registerEmail">Email</label>
-          <input id="registerEmail" type="email" placeholder="you@example.com" required>
+          <input id="registerEmail" type="email" autocomplete="email" required>
         </div>
         <div>
           <label for="registerPassword">Пароль</label>
-          <input id="registerPassword" type="password" placeholder="Минимум 6 символов" required>
+          <input id="registerPassword" type="password" autocomplete="new-password" minlength="6" required>
         </div>
         <button class="submit" type="submit">Создать аккаунт</button>
       </form>
 
-      <div class="hint">
-        Публичная конфигурация Supabase теперь загружается с сервера через <code>/api/public-config</code>.
-        Диагностические сообщения пишутся в DevTools Console.
-      </div>
+      <p class="hint">После входа откроется кабинет, где можно запускать генерацию сценариев и просматривать сохранённые
+        данные.</p>
     </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const messageEl = document.getElementById('message');
-    const tabs = document.querySelectorAll('.tab');
-    const forms = document.querySelectorAll('.form');
     let supabaseClient = null;
+
+    const messageEl = document.getElementById('message');
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
 
     function showMessage(text, type = 'success') {
       messageEl.textContent = text;
@@ -348,38 +347,25 @@
       messageEl.className = 'message';
     }
 
-    function setActiveTab(tabName) {
-      tabs.forEach((tab) => {
-        tab.classList.toggle('active', tab.dataset.tab === tabName);
-      });
-
-      forms.forEach((form) => {
-        form.classList.toggle('active', form.id === `${tabName}Form`);
-      });
-
+    function setActiveTab(tab) {
+      const isLogin = tab === 'login';
+      loginTab.classList.toggle('active', isLogin);
+      registerTab.classList.toggle('active', !isLogin);
+      loginForm.classList.toggle('active', isLogin);
+      registerForm.classList.toggle('active', !isLogin);
       clearMessage();
     }
 
-    tabs.forEach((tab) => {
-      tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
-    });
-
     async function initSupabase() {
       try {
-        console.log('[auth] Loading public config from /api/public-config');
         const response = await fetch('/api/public-config');
         const config = await response.json();
-        console.log('[auth] Public config response:', {
-          hasUrl: Boolean(config.supabaseUrl),
-          hasAnonKey: Boolean(config.supabaseAnonKey)
-        });
 
         if (!config.supabaseUrl || !config.supabaseAnonKey) {
           throw new Error('Supabase public config is missing. Check SUPABASE_URL and SUPABASE_ANON_KEY in .env.');
         }
 
         supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-        console.log('[auth] Supabase client initialized successfully');
         return true;
       } catch (error) {
         console.error('[auth] Failed to initialize Supabase client:', error);
@@ -390,14 +376,16 @@
 
     async function redirectIfAuthenticated() {
       if (!supabaseClient) return;
-      const { data, error } = await supabaseClient.auth.getSession();
-      console.log('[auth] Session check:', { hasSession: Boolean(data?.session), error: error?.message || null });
-      if (data?.session) {
+      const { data } = await supabaseClient.auth.getSession();
+      if (data.session) {
         window.location.href = '/dashboard.html';
       }
     }
 
-    document.getElementById('loginForm').addEventListener('submit', async (event) => {
+    loginTab.addEventListener('click', () => setActiveTab('login'));
+    registerTab.addEventListener('click', () => setActiveTab('register'));
+
+    loginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       clearMessage();
 
@@ -412,12 +400,10 @@
       try {
         const email = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value;
-        console.log('[auth] Login submit:', { email });
 
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        showMessage('Вход выполнен. Перенаправление в кабинет...');
         window.location.href = '/dashboard.html';
       } catch (error) {
         console.error('[auth] Login failed:', error);
@@ -427,7 +413,7 @@
       }
     });
 
-    document.getElementById('registerForm').addEventListener('submit', async (event) => {
+    registerForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       clearMessage();
 
@@ -444,44 +430,31 @@
         const lastName = document.getElementById('lastName').value.trim();
         const email = document.getElementById('registerEmail').value.trim();
         const password = document.getElementById('registerPassword').value;
-        const fullName = [firstName, lastName].filter(Boolean).join(' ');
-
-        console.log('[auth] Register submit:', { email, fullName, passwordLength: password.length });
 
         const { data, error } = await supabaseClient.auth.signUp({
           email,
           password,
           options: {
             data: {
-              full_name: fullName,
               first_name: firstName,
               last_name: lastName
             }
           }
         });
 
-        console.log('[auth] Register response:', {
-          hasUser: Boolean(data?.user),
-          hasSession: Boolean(data?.session),
-          error: error?.message || null
-        });
-
         if (error) throw error;
 
         if (data.user && data.session) {
-          const { error: profileError } = await supabaseClient.from('profiles').upsert({
-            id: data.user.id,
-            full_name: fullName,
-            updated_at: new Date().toISOString()
+          const { error: profileError } = await supabaseClient.from('user_profiles').upsert({
+            user_id: data.user.id,
+            first_name: firstName,
+            last_name: lastName,
+            email
           });
 
           if (profileError) {
             console.error('[auth] Profile upsert failed:', profileError);
-          } else {
-            console.log('[auth] Profile upsert completed');
           }
-        } else {
-          console.log('[auth] Skipping profile upsert because there is no authenticated session yet');
         }
 
         showMessage('Аккаунт создан. Подтверди email в письме от Supabase, затем выполни вход.');

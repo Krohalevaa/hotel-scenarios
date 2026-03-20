@@ -6,20 +6,35 @@ const email = require('./email');
 const logger = require('./logger');
 const { consumeFromQueue } = require('./rabbitmq');
 
+function collectKeyFeatures(hotelData) {
+    const candidates = [
+        ...(Array.isArray(hotelData.amenities) ? hotelData.amenities : []),
+        ...(Array.isArray(hotelData.special_offers) ? hotelData.special_offers : [])
+    ];
+
+    return [...new Set(
+        candidates
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+    )].slice(0, 5);
+}
+
 /**
  * Main hotel processing worker logic.
  */
 async function processHotelData(hotelData) {
     const hotelLogName = hotelData.hotel_name || hotelData.hotel_website_url;
     logger.info(`=== Starting processing for hotel: "${hotelLogName}" ===`);
+    logger.info(`[worker] Incoming job payload: user=${hotelData?.user_id || 'n/a'}, hotelUrl=${hotelData?.hotel_website_url || 'n/a'}, city=${hotelData?.city || 'n/a'}, email=${hotelData?.contact_email || 'n/a'}, hasName=${Boolean(hotelData?.hotel_name)}`);
 
     let scriptRecord = null;
 
     try {
+        logger.info(`[worker] About to create initial DB record for hotel="${hotelLogName}"`);
         scriptRecord = await db.saveScript({
             user_id: hotelData.user_id,
             contact_email: hotelData.contact_email,
-            hotel_website_url: hotelData.hotel_website_url,
+            hotel_url: hotelData.hotel_website_url,
             business_goal: hotelData.business_goal,
             city: hotelData.city,
             language: hotelData.language || 'Russian',
@@ -27,7 +42,8 @@ async function processHotelData(hotelData) {
             hotel_name: hotelData.hotel_name || null
         });
 
-        const scriptId = scriptRecord.id;
+        const scenarioId = scriptRecord.id;
+        logger.info(`[worker] Initial DB record created: scenarioId=${scenarioId}, status=${scriptRecord.status}`);
 
         logger.info('Step 1: Starting Geocoding & Name Normalization...');
 
@@ -43,10 +59,10 @@ async function processHotelData(hotelData) {
         hotelData.hotel_name = canonicalName;
 
         await db.saveScript({
-            id: scriptId,
+            id: scenarioId,
             user_id: hotelData.user_id,
             contact_email: hotelData.contact_email,
-            hotel_website_url: hotelData.hotel_website_url,
+            hotel_url: hotelData.hotel_website_url,
             business_goal: hotelData.business_goal,
             city: hotelData.city,
             language: hotelData.language || 'Russian',
@@ -68,19 +84,33 @@ async function processHotelData(hotelData) {
 
         logger.info(`Geocoding finished. Result: ${hotelData._geo_debug} [${hotelData.geo_lat}, ${hotelData.geo_lon}]`);
 
+        let attractions = [];
         if (hotelData.geo_lat && hotelData.geo_lon) {
             logger.info('Step 2: Searching for nearby attractions...');
             await new Promise((resolve) => setTimeout(resolve, 3000));
-            const attractions = await geo.searchAttractions(hotelData.geo_lat, hotelData.geo_lon);
+            attractions = await geo.searchAttractions(hotelData.geo_lat, hotelData.geo_lon);
             logger.info(`Found ${attractions.length} attractions.`);
 
             hotelData.nearby_attractions = attractions.map((item) => item.name || item.attraction_name).filter(Boolean);
 
             if (attractions.length > 0) {
                 logger.info('Saving attractions to Supabase...');
-                await db.saveAttractions(scriptId, attractions);
+                await db.saveAttractions(scenarioId, hotelData.hotel_name, attractions);
             }
         }
+
+        await db.saveHotelSourceData({
+            scenario_id: scenarioId,
+            hotel_url: hotelData.hotel_website_url,
+            hotel_name: hotelData.hotel_name,
+            city: hotelData.city,
+            country: hotelData.country || null,
+            address: hotelData.address || null,
+            latitude: hotelData.geo_lat,
+            longitude: hotelData.geo_lon,
+            attractions_found: attractions.length > 0,
+            key_features: collectKeyFeatures(hotelData)
+        });
 
         logger.info('Step 3: Generating video script via AI...');
 
@@ -90,21 +120,22 @@ async function processHotelData(hotelData) {
         let scriptContent;
         try {
             scriptContent = await ai.generateScript(hotelData);
-            logger.debug(`AI script result received for script ${scriptId}: hasContent=${Boolean(scriptContent)} length=${scriptContent?.length || 0}`);
+            logger.debug(`AI script result received for scenario ${scenarioId}: hasContent=${Boolean(scriptContent)} length=${scriptContent?.length || 0}`);
         } catch (error) {
-            logger.warn(`AI script generation failed for script ${scriptId}, using fallback script: ${error.message}`);
+            logger.warn(`AI script generation failed for scenario ${scenarioId}, using fallback script: ${error.message}`);
             scriptContent = ai.buildFallbackScript(hotelData);
-            logger.debug(`Fallback script created from catch block for script ${scriptId}: length=${scriptContent?.length || 0}`);
+            logger.debug(`Fallback script created from catch block for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
         }
 
         if (!scriptContent) {
-            logger.warn(`AI returned empty script for ${scriptId}, using fallback script.`);
+            logger.warn(`AI returned empty script for ${scenarioId}, using fallback script.`);
             scriptContent = ai.buildFallbackScript(hotelData);
-            logger.debug(`Fallback script created after empty AI response for script ${scriptId}: length=${scriptContent?.length || 0}`);
+            logger.debug(`Fallback script created after empty AI response for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
         }
 
-        logger.info(`Persisting completed script ${scriptId}: finalLength=${scriptContent?.length || 0}, emailTarget=${hotelData.contact_email || 'akrohaleva67@gmail.com'}`);
-        await db.updateScriptStatus(scriptId, 'completed', scriptContent);
+        logger.info(`Persisting completed scenario ${scenarioId}: finalLength=${scriptContent?.length || 0}, emailTarget=${hotelData.contact_email || 'akrohaleva67@gmail.com'}`);
+        await db.updateScriptStatus(scenarioId, 'completed', scriptContent);
+        logger.info(`[worker] Final DB update completed: scenarioId=${scenarioId}, finalScriptLength=${scriptContent?.length || 0}`);
         logger.info('Script generated successfully.');
 
         try {
@@ -118,6 +149,7 @@ async function processHotelData(hotelData) {
 
         logger.info(`=== Successfully finished processing hotel: "${hotelData.hotel_name}" ===`);
     } catch (err) {
+        logger.error(`[worker] Processing failed before completion for hotel="${hotelLogName}", scenarioId=${scriptRecord?.id || 'not-created'}: ${err.message}`);
         if (scriptRecord?.id) {
             try {
                 await db.updateScriptStatus(scriptRecord.id, 'failed');

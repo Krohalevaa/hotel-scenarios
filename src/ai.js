@@ -7,105 +7,69 @@ const logger = require('./logger');
  */
 async function azureChat(systemMessage, userMessage, deployment) {
     const url = `https://${config.AZURE_OPENAI_API_INSTANCE_NAME}.openai.azure.com/openai/deployments/${deployment}/chat/completions?api-version=${config.AZURE_OPENAI_API_VERSION}`;
-    
+
     const messages = [
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage }
     ];
-    
-    // Task 12: Add retries and timeouts
+
+    const requestBody = {
+        messages,
+        max_completion_tokens: 800,
+        temperature: 0.7
+    };
+
+    logger.debug(`AI request prepared: deployment=${deployment}, url=${url}, apiVersion=${config.AZURE_OPENAI_API_VERSION}, hasApiKey=${Boolean(config.AZURE_OPENAI_API_KEY)}, systemLength=${systemMessage.length}, userLength=${userMessage.length}`);
+
     let lastError;
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
-            const response = await axios.post(url, {
-                messages: messages,
-                max_tokens: 800,
-                temperature: 0.7,
-            }, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api-key': config.AZURE_OPENAI_API_KEY,
-                },
-                timeout: 120000 // 2 minutes timeout
-            });
+            logger.debug(`AI request attempt ${attempt + 1} for deployment=${deployment}`);
+            const response = await axios.post(
+                url,
+                requestBody,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': config.AZURE_OPENAI_API_KEY
+                    },
+                    timeout: 120000
+                }
+            );
+            logger.debug(`AI request succeeded on attempt ${attempt + 1} for deployment=${deployment}`);
             return response.data.choices[0].message.content;
         } catch (error) {
             lastError = error;
-            logger.warn(`AI attempt ${attempt + 1} failed: ${error.message}`);
-            // Wait before retry
-            if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+            const responseStatus = error.response?.status || 'unknown';
+            const responseData = typeof error.response?.data === 'string'
+                ? error.response.data
+                : JSON.stringify(error.response?.data || {});
+            logger.warn(`AI attempt ${attempt + 1} failed: ${error.message}; status=${responseStatus}; response=${responseData}`);
+            if (attempt < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+            }
         }
     }
+
     throw new Error(`AI Request failed after 3 attempts: ${lastError.message}`);
 }
 
-async function generateSchemaSQL(rawData) {
-    const systemMessage = `Ты — Senior Data Engineer и эксперт по ClickHouse.
-Твоя задача — преобразовать входной JSON с сырыми данными об отеле в готовый SQL-запрос INSERT для таблицы \`hotel_profile\`.
+function buildFallbackScript(hotelData) {
+    const hotelName = hotelData.hotel_name || 'the hotel';
+    const city = hotelData.city || 'the city';
+    const country = hotelData.country || 'the destination';
+    const attractions = Array.isArray(hotelData.nearby_attractions) ? hotelData.nearby_attractions.slice(0, 5) : [];
+    const attractionText = attractions.length
+        ? attractions.map((item) => item.name).filter(Boolean).join(', ')
+        : 'popular local attractions';
 
-### 1. ИНСТРУКЦИЯ ПО МЫШЛЕНИЮ (Reasoning)
-Ты должен "подумать" перед генерацией. Запиши ход своих мыслей в поле \`_reasoning\` внутри JSON ответа.
-В ходе мышления:
-1. Проанализируй входные данные. Определи, какие поля есть, а каких нет.
-2. Определи \`hotel_type\` (resort, business, etc.) на основе описания и удобств, если он не указан явно.
-3. Сформулируй \`positioning_reasons\` (почему люди едут сюда?) и \`main_trip_purposes\` из контекста.
-4. Если в JSON переданы координаты (geo_lat, geo_lon), ты ОБЯЗАН использовать их. Не пытайся решить, что они неверные или лишние.
-5. ЭКРАНИРОВАНИЕ (ОЧЕНЬ ВАЖНО): 
-   - Для обычных строк (String): вставляй как 'значение', удваивай кавычки внутри (' -> '').
-   - Для массивов (Array(String)): вставляй как ['эл1', 'эл2']. НЕ ПИШИ [''значение''], используй только одну кавычку для обрамления элемента массива. Если внутри элемента есть кавычка - удваивай.
-
-### 2. СТРОГАЯ СХЕМА ТАБЛИЦЫ (Target Schema)
-Ты можешь использовать ТОЛЬКО эти колонки. Запрещено выдумывать свои (никаких \`name\`, \`desc\` и т.д.).
-
-Таблица: \`hotel_profile\`
-- hotel_domain (String)        — Домен сайта (например: "hilton.com")
-- hotel_name (String)          — Название отеля
-- address (String)             — Полный адрес или NULL
-- city (String)                — Город (выдели из адреса) или NULL
-- country (String)             — Страна (выдели из адреса) или NULL
-- geo_lat (Float64)            — Широта или NULL
-- geo_lon (Float64)            — Долгота или NULL
-- hotel_type (String)          — Тип: 'business', 'resort', 'family', 'boutique'
-- positioning_reasons (Array(String)) — Причины выбора
-- core_description (String)    — Краткое описание
-- special_services (Array(String))    — Фишки
-- main_trip_purposes (Array(String))  — Цели
-- source_url (String)          — URL источника
-- source_captured_at (DateTime)— Дата сбора
-
-### 3. ФОРМАТ ОТВЕТА
-Верни строго валидный JSON. Никакого текста до или после JSON.
-
-Пример структуры ответа:
-{
-  "_reasoning": "...",
-  "sql": "INSERT INTO hotel_profile (...) VALUES (...);"
-}
-
-### 4. КРИТИЧЕСКИЕ ПРАВИЛА ПО КООРДИНАТАМ:
-   - Вставляй СТРОГО те значения geo_lat и geo_lon, которые переданы во входящем JSON. ЗАПРЕЩЕНО заменять их на NULL, если во входных данных есть числа.`;
-
-    const userMessage = `Вот сырой JSON с данными об отеле:
-${JSON.stringify(rawData, null, 2)}
-
-Твоя задача:
-1. Проанализируй этот JSON.
-2. Извлеки данные согласно правилам.
-3. Сформируй SQL INSERT запрос согласно твоему системному промпту.
-Верни только JSON объект: { "sql": "..." }`;
-
-    try {
-        logger.debug(`AI: Starting Schema SQL generation for hotel...`);
-        const text = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SQL);
-        // Strip possible markdown code block wrapper
-        const clean = text.replace(/^```[a-z]*\n?/i, '').replace(/```$/m, '').trim();
-        const parsed = JSON.parse(clean);
-        logger.debug('AI: Schema SQL generated successfully.');
-        return parsed.sql || null;
-    } catch (err) {
-        logger.error(`AI Schema Mapping Error: ${err.response?.data || err.message}`);
-        return null;
-    }
+    return [
+        `Welcome to ${hotelName}, a comfortable stay in ${city}, ${country}.`,
+        `${hotelName} offers travelers a convenient base for exploring ${city} and enjoying a smooth, relaxing trip.`,
+        `Nearby points of interest include ${attractionText}, giving guests easy access to memorable experiences during their visit.`,
+        `Whether you are traveling for leisure or business, ${hotelName} is positioned to help you enjoy the best of ${city}.`,
+        `Book your stay at ${hotelName} and discover everything this destination has to offer.`
+    ].join(' ');
 }
 
 async function generateScript(hotelData) {
@@ -178,10 +142,11 @@ Target Language: ${hotelData.language}`;
     try {
         logger.debug(`AI: Starting Script Writer for: ${hotelData.hotel_name}`);
         const scriptText = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SCRIPT);
-        logger.debug('AI: Script Writer finished.');
+        logger.debug(`AI: Script Writer finished. hasText=${Boolean(scriptText)} length=${scriptText?.length || 0}`);
         return scriptText.trim();
     } catch (err) {
         logger.error(`AI Script Writer Error: ${err.response?.data || err.message}`);
+        logger.error(`AI Script Writer Context: hotel=${hotelData.hotel_name}, language=${hotelData.language}, businessGoal=${hotelData.business_goal}, attractionsCount=${hotelData.nearby_attractions?.length || 0}`);
         return null;
     }
 }
@@ -252,7 +217,7 @@ URL: "${url}"
         const result = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SQL);
         const clean = result.replace(/^```[a-z]*\n?/i, '').replace(/```$/m, '').trim();
         const parsed = JSON.parse(clean);
-        
+
         logger.debug(`AI: OSM Prediction: "${parsed.osm_target_name}"`);
         return {
             osm_target_name: parsed.osm_target_name || hotelName,
@@ -264,4 +229,4 @@ URL: "${url}"
     }
 }
 
-module.exports = { generateSchemaSQL, generateScript, extractCleanHotelName, predictOsmHotelData };
+module.exports = { generateScript, extractCleanHotelName, predictOsmHotelData, buildFallbackScript };

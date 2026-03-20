@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Scenarios — Кабинет</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --panel-soft: #eef4ff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #166534;
+            --success-bg: #dcfce7;
+            --warning: #92400e;
+            --warning-bg: #fef3c7;
+            --danger: #991b1b;
+            --danger-bg: #fee2e2;
+            --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .layout {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+        }
+
+        aside {
+            background: #0f172a;
+            color: white;
+            padding: 28px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
+
+        .menu {
+            display: grid;
+            gap: 10px;
+        }
+
+        .menu button {
+            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.88);
+            text-align: left;
+            padding: 14px 16px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .menu button.active {
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            color: white;
+        }
+
+        main {
+            padding: 28px;
+            display: grid;
+            gap: 24px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 18px 22px;
+            box-shadow: var(--shadow);
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .topbar p {
+            margin: 6px 0 0;
+            color: var(--muted);
+        }
+
+        .userbox {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #dbeafe;
+            border: 2px solid #bfdbfe;
+        }
+
+        .ghost,
+        .primary,
+        .danger {
+            border: none;
+            border-radius: 14px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .ghost {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .danger {
+            background: #0f172a;
+            color: white;
+        }
+
+        .section {
+            display: none;
+            gap: 20px;
+        }
+
+        .section.active {
+            display: grid;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 22px;
+            box-shadow: var(--shadow);
+        }
+
+        .card h2,
+        .card h3 {
+            margin-top: 0;
+        }
+
+        .stack {
+            display: grid;
+            gap: 14px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 13px 14px;
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+            outline: none;
+        }
+
+        textarea {
+            min-height: 180px;
+            resize: vertical;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        .message {
+            display: none;
+            padding: 14px 16px;
+            border-radius: 14px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message.success,
+        .message.error,
+        .message.warning {
+            display: block;
+        }
+
+        .message.success {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .message.error {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .message.warning {
+            background: var(--warning-bg);
+            color: var(--warning);
+        }
+
+        .scripts {
+            display: grid;
+            gap: 16px;
+        }
+
+        .script-card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            background: linear-gradient(180deg, #fff, #f8fbff);
+        }
+
+        .script-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .script-text {
+            white-space: pre-wrap;
+            color: #334155;
+            line-height: 1.6;
+            margin-top: 12px;
+        }
+
+        .empty {
+            color: var(--muted);
+            text-align: center;
+            padding: 28px;
+            border: 1px dashed var(--border);
+            border-radius: 18px;
+            background: #fff;
+        }
+
+        .full {
+            grid-column: 1 / -1;
+        }
+
+        @media (max-width: 1100px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            aside {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            }
+
+            .menu {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 860px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .menu {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layout">
+        <aside>
+            <div class="logo">Hotel Scenarios</div>
+            <div class="menu">
+                <button class="nav-btn active" data-section="generator">Генератор</button>
+                <button class="nav-btn" data-section="scripts">Мои сценарии</button>
+                <button class="nav-btn" data-section="profile">Профиль</button>
+            </div>
+        </aside>
+
+        <main>
+            <div class="topbar">
+                <div>
+                    <h1>Личный кабинет</h1>
+                    <p>Управление генерациями, профилем и аватаркой через Supabase.</p>
+                </div>
+                <div class="userbox">
+                    <img id="headerAvatar" class="avatar" alt="avatar">
+                    <div>
+                        <div id="headerName"><strong>Загрузка...</strong></div>
+                        <div id="headerEmail" style="color:#64748b;font-size:14px;"></div>
+                    </div>
+                    <button id="logoutBtn" class="danger">Выйти</button>
+                </div>
+            </div>
+
+            <div id="globalMessage" class="message"></div>
+
+            <section id="generator" class="section active">
+                <div class="grid">
+                    <div class="card">
+                        <h2>Одиночная генерация</h2>
+                        <form id="singleGeneratorForm" class="stack">
+                            <div>
+                                <label for="hotelUrl">Сайт отеля</label>
+                                <input id="hotelUrl" type="url" placeholder="https://hotel.com" required>
+                            </div>
+                            <div>
+                                <label for="businessGoal">Бизнес-цель</label>
+                                <input id="businessGoal" type="text" placeholder="Увеличить бронирования на выходные"
+                                    required>
+                            </div>
+                            <div>
+                                <label for="city">Город</label>
+                                <input id="city" type="text" placeholder="Москва" required>
+                            </div>
+                            <div>
+                                <label for="contactEmail">Email для результата</label>
+                                <input id="contactEmail" type="email" placeholder="you@example.com">
+                            </div>
+                            <div>
+                                <label for="language">Язык сценария</label>
+                                <select id="language">
+                                    <option value="Russian">Russian</option>
+                                    <option value="English">English</option>
+                                    <option value="Spanish">Spanish</option>
+                                </select>
+                            </div>
+                            <button class="primary" type="submit">Запустить генерацию</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h2>Bulk upload</h2>
+                        <form id="bulkGeneratorForm" class="stack">
+                            <div>
+                                <label for="bulkJson">JSON-массив отелей</label>
+                                <textarea id="bulkJson"
+                                    placeholder='[{"hotel_website_url":"https://hotel.com","city":"Paris","business_goal":"Increase direct bookings"}]'
+                                    required></textarea>
+                            </div>
+                            <button class="primary" type="submit">Запустить bulk-генерацию</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <section id="scripts" class="section">
+                <div class="card full">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <h2>Мои сценарии</h2>
+                            <p style="margin:0;color:#64748b;">Все генерации текущего пользователя из Supabase.</p>
+                        </div>
+                        <button id="refreshScriptsBtn" class="ghost">Обновить список</button>
+                    </div>
+                    <div id="scriptsList" class="scripts" style="margin-top:18px;"></div>
+                </div>
+            </section>
+
+            <section id="profile" class="section">
+                <div class="grid">
+                    <div class="card">
+                        <h2>Профиль</h2>
+                        <form id="profileForm" class="stack">
+                            <div>
+                                <label for="fullName">Имя и фамилия</label>
+                                <input id="fullName" type="text" placeholder="Анна Иванова">
+                            </div>
+                            <button class="primary" type="submit">Сохранить профиль</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h2>Аватарка</h2>
+                        <div class="stack">
+                            <img id="profileAvatar" class="avatar" alt="avatar preview" style="width:96px;height:96px;">
+                            <div>
+                                <label for="avatarFile">Загрузить изображение</label>
+                                <input id="avatarFile" type="file" accept="image/*">
+                            </div>
+                            <button id="uploadAvatarBtn" class="primary" type="button">Загрузить аватарку</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        let supabaseClient = null;
+        let currentSession = null;
+        let currentProfile = null;
+
+        const globalMessage = document.getElementById('globalMessage');
+        const headerAvatar = document.getElementById('headerAvatar');
+        const profileAvatar = document.getElementById('profileAvatar');
+        const headerName = document.getElementById('headerName');
+        const headerEmail = document.getElementById('headerEmail');
+        const fullNameInput = document.getElementById('fullName');
+        const contactEmailInput = document.getElementById('contactEmail');
+        const scriptsList = document.getElementById('scriptsList');
+
+        function showMessage(text, type = 'success') {
+            globalMessage.textContent = text;
+            globalMessage.className = `message ${type}`;
+        }
+
+        function clearMessage() {
+            globalMessage.textContent = '';
+            globalMessage.className = 'message';
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentSession.access_token}`
+            };
+        }
+
+        function setAvatar(urlValue) {
+            const fallback = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+          <rect width="96" height="96" rx="48" fill="#dbeafe"/>
+          <circle cx="48" cy="36" r="18" fill="#60a5fa"/>
+          <path d="M20 84c6-16 18-24 28-24s22 8 28 24" fill="#60a5fa"/>
+        </svg>
+      `);
+            headerAvatar.src = urlValue || fallback;
+            profileAvatar.src = urlValue || fallback;
+        }
+
+        function formatDate(value) {
+            if (!value) return '—';
+            return new Date(value).toLocaleString('ru-RU');
+        }
+
+        function renderScripts(items) {
+            if (!items.length) {
+                scriptsList.innerHTML = '<div class="empty">Сценариев пока нет. Запусти первую генерацию в разделе «Генератор».</div>';
+                return;
+            }
+
+            scriptsList.innerHTML = items.map((item) => `
+        <article class="script-card">
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+            <div>
+              <h3 style="margin:0 0 8px;">${item.hotel_name || 'Без названия'}</h3>
+              <div style="color:#64748b;font-size:14px;">${item.hotel_website_url || ''}</div>
+            </div>
+            <div class="script-meta">
+              <span class="badge">${item.status || 'new'}</span>
+              <span class="badge">${formatDate(item.created_at)}</span>
+              <span class="badge">${item.language || 'Russian'}</span>
+            </div>
+          </div>
+          <div style="margin-top:12px;color:#334155;"><strong>Цель:</strong> ${item.business_goal || '—'}</div>
+          <div style="margin-top:6px;color:#334155;"><strong>Город:</strong> ${item.city || '—'}</div>
+          <div class="script-text">${item.final_script || 'Сценарий ещё не готов.'}</div>
+        </article>
+      `).join('');
+        }
+
+        async function initSupabase() {
+            try {
+                console.log('[dashboard] Loading public config from /api/public-config');
+                const response = await fetch('/api/public-config');
+                const config = await response.json();
+                console.log('[dashboard] Public config response:', {
+                    hasUrl: Boolean(config.supabaseUrl),
+                    hasAnonKey: Boolean(config.supabaseAnonKey)
+                });
+
+                if (!config.supabaseUrl || !config.supabaseAnonKey) {
+                    throw new Error('Supabase public config is missing. Check SUPABASE_URL and SUPABASE_ANON_KEY in .env.');
+                }
+
+                supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+                console.log('[dashboard] Supabase client initialized successfully');
+                return true;
+            } catch (error) {
+                console.error('[dashboard] Failed to initialize Supabase client:', error);
+                showMessage(error.message || 'Не удалось инициализировать Supabase.', 'error');
+                return false;
+            }
+        }
+
+        async function api(path, options = {}) {
+            const response = await fetch(path, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    Authorization: `Bearer ${currentSession.access_token}`
+                }
+            });
+
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload.error || 'Request failed');
+            }
+            return payload;
+        }
+
+        async function loadProfile() {
+            console.log('[dashboard] Loading profile');
+            const profileResponse = await api('/api/me/profile');
+            currentProfile = profileResponse.data;
+            headerName.innerHTML = `<strong>${currentProfile.full_name || 'Пользователь'}</strong>`;
+            headerEmail.textContent = currentProfile.email || '';
+            fullNameInput.value = currentProfile.full_name || '';
+            contactEmailInput.value = currentProfile.email || '';
+            setAvatar(currentProfile.avatar_url || currentProfile.publicUrl || null);
+        }
+
+        async function loadScripts() {
+            console.log('[dashboard] Loading scripts');
+            scriptsList.innerHTML = '<div class="empty">Загрузка сценариев...</div>';
+            const scriptsResponse = await api('/api/me/scripts');
+            renderScripts(scriptsResponse.data || []);
+        }
+
+        async function ensureSession() {
+            if (!supabaseClient) return false;
+            const { data, error } = await supabaseClient.auth.getSession();
+            currentSession = data.session;
+            console.log('[dashboard] Session check:', { hasSession: Boolean(currentSession), error: error?.message || null });
+            if (!currentSession) {
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        }
+
+        document.querySelectorAll('.nav-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach((btn) => btn.classList.remove('active'));
+                document.querySelectorAll('.section').forEach((section) => section.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById(button.dataset.section).classList.add('active');
+                clearMessage();
+            });
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            console.log('[dashboard] Logout requested');
+            await supabaseClient.auth.signOut();
+            window.location.href = '/';
+        });
+
+        document.getElementById('singleGeneratorForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearMessage();
+            const button = event.submitter;
+            button.disabled = true;
+
+            try {
+                console.log('[dashboard] Single generation submit');
+                await api('/generate-script', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        hotel_website_url: document.getElementById('hotelUrl').value.trim(),
+                        business_goal: document.getElementById('businessGoal').value.trim(),
+                        city: document.getElementById('city').value.trim(),
+                        contact_email: document.getElementById('contactEmail').value.trim(),
+                        language: document.getElementById('language').value
+                    })
+                });
+
+                showMessage('Генерация поставлена в очередь. Обнови список сценариев через несколько секунд.');
+                event.target.reset();
+                contactEmailInput.value = currentProfile?.email || '';
+            } catch (error) {
+                console.error('[dashboard] Single generation failed:', error);
+                showMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('bulkGeneratorForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearMessage();
+            const button = event.submitter;
+            button.disabled = true;
+
+            try {
+                const hotels = JSON.parse(document.getElementById('bulkJson').value);
+                if (!Array.isArray(hotels)) {
+                    throw new Error('Нужен JSON-массив объектов отелей.');
+                }
+
+                console.log('[dashboard] Bulk generation submit:', { count: hotels.length });
+                await api('/api/bulk-generate-script', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(hotels)
+                });
+
+                showMessage(`Bulk-генерация запущена для ${hotels.length} отелей.`);
+                event.target.reset();
+            } catch (error) {
+                console.error('[dashboard] Bulk generation failed:', error);
+                showMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('profileForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearMessage();
+            const button = event.submitter;
+            button.disabled = true;
+
+            try {
+                console.log('[dashboard] Profile update submit');
+                const payload = await api('/api/me/profile', {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ full_name: fullNameInput.value.trim() })
+                });
+
+                currentProfile = { ...currentProfile, ...payload.data };
+                headerName.innerHTML = `<strong>${currentProfile.full_name || 'Пользователь'}</strong>`;
+                showMessage('Профиль обновлён.');
+            } catch (error) {
+                console.error('[dashboard] Profile update failed:', error);
+                showMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        async function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function convertImageToJpegDataUrl(file) {
+            const imageUrl = URL.createObjectURL(file);
+
+            try {
+                const image = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error('Не удалось обработать изображение. Попробуй выбрать JPG или PNG.'));
+                    img.src = imageUrl;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = image.naturalWidth || image.width;
+                canvas.height = image.naturalHeight || image.height;
+
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(image, 0, 0);
+
+                return canvas.toDataURL('image/jpeg', 0.92);
+            } finally {
+                URL.revokeObjectURL(imageUrl);
+            }
+        }
+
+        document.getElementById('uploadAvatarBtn').addEventListener('click', async () => {
+            clearMessage();
+            const fileInput = document.getElementById('avatarFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showMessage('Сначала выбери изображение.', 'warning');
+                return;
+            }
+
+            const button = document.getElementById('uploadAvatarBtn');
+            button.disabled = true;
+
+            try {
+                const isHeic = ['image/heic', 'image/heif'].includes(file.type);
+                const dataUrl = isHeic
+                    ? await convertImageToJpegDataUrl(file)
+                    : await readFileAsDataUrl(file);
+
+                console.log('[dashboard] Avatar upload submit:', {
+                    size: file.size,
+                    type: file.type,
+                    convertedToJpeg: isHeic
+                });
+
+                if (isHeic) {
+                    showMessage('HEIC/HEIF автоматически конвертирован в JPEG перед загрузкой.', 'warning');
+                }
+
+                const payload = await api('/api/me/avatar', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ avatar: dataUrl })
+                });
+
+                setAvatar(payload.data.publicUrl);
+                currentProfile = { ...currentProfile, avatar_url: payload.data.publicUrl };
+                showMessage('Аватарка обновлена.');
+            } catch (error) {
+                console.error('[dashboard] Avatar upload failed:', error);
+                showMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('refreshScriptsBtn').addEventListener('click', async () => {
+            clearMessage();
+            try {
+                await loadScripts();
+                showMessage('Список сценариев обновлён.');
+            } catch (error) {
+                console.error('[dashboard] Refresh scripts failed:', error);
+                showMessage(error.message, 'error');
+            }
+        });
+
+        (async function init() {
+            const initialized = await initSupabase();
+            if (!initialized) return;
+
+            const hasSession = await ensureSession();
+            if (!hasSession) return;
+
+            try {
+                await loadProfile();
+                await loadScripts();
+            } catch (error) {
+                console.error('[dashboard] Initial load failed:', error);
+                showMessage(error.message, 'error');
+            }
+        })();
+    </script>
+</body>
+
+</html>

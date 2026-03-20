@@ -7,9 +7,28 @@ const RABBITMQ_BASE = config.RABBITMQ_HTTP_URL;
 const VHOST = config.RABBITMQ_VHOST;
 const QUEUE_NAME = 'hotel_data_queue';
 const EXCHANGE = 'amq.default';
+const pendingFallbackJobs = [];
 
 function getAuthHeader() {
     return `Basic ${config.RABBITMQ_AUTH_BASE64}`;
+}
+
+function stringifyErrorPayload(payload) {
+    if (!payload) return 'unknown';
+    return typeof payload === 'string' ? payload : JSON.stringify(payload);
+}
+
+function enqueueFallbackJob(data, reason) {
+    pendingFallbackJobs.push({
+        data,
+        reason,
+        queuedAt: new Date().toISOString()
+    });
+    logger.warn(`RabbitMQ fallback job queued for hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}" reason="${reason}" pending=${pendingFallbackJobs.length}`);
+}
+
+function takeFallbackJob() {
+    return pendingFallbackJobs.shift() || null;
 }
 
 /**
@@ -22,14 +41,16 @@ async function declareQueue() {
             headers: {
                 Authorization: getAuthHeader(),
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 15000
         });
-        logger.info(`Queue "${QUEUE_NAME}" is ready.`);
+        logger.info(`Queue "${QUEUE_NAME}" is ready. vhost=${VHOST}`);
     } catch (err) {
-        // 204 No Content = already exists — that's OK
         if (err.response?.status !== 204) {
-            logger.error(`Queue declare error: ${err.response?.data || err.message}`);
+            logger.error(`Queue declare error: ${stringifyErrorPayload(err.response?.data || err.message)}`);
+            throw err;
         }
+        logger.info(`Queue "${QUEUE_NAME}" already exists. vhost=${VHOST}`);
     }
 }
 
@@ -38,7 +59,6 @@ async function declareQueue() {
  * Mirrors n8n node "RabbitMQ: Publish"
  */
 async function publishToQueue(data) {
-    // Make sure queue exists first
     await declareQueue();
 
     const url = `${RABBITMQ_BASE}/api/exchanges/${encodeURIComponent(VHOST)}/${EXCHANGE}/publish`;
@@ -48,21 +68,40 @@ async function publishToQueue(data) {
         payload: JSON.stringify(data),
         payload_encoding: 'string'
     };
+
+    logger.info(`Publishing to RabbitMQ: hotel="${data?.hotel_name || data?.hotel_website_url}", vhost=${VHOST}, queue=${QUEUE_NAME}, exchange=${EXCHANGE}`);
+
     try {
         const response = await axios.post(url, body, {
             headers: {
                 Authorization: getAuthHeader(),
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 15000
         });
-        if (response.data?.routed === false) {
-            logger.warn('WARNING: Message was NOT routed to any queue! Check vhost/queue config.');
-        } else {
-            logger.info(`Published to RabbitMQ: ${data.hotel_name}`);
+
+        logger.info(`RabbitMQ publish response: status=${response.status}, routed=${response.data?.routed}, vhost=${VHOST}, queue=${QUEUE_NAME}`);
+
+        if (response.data?.routed !== true) {
+            const reason = `publish_not_routed:${stringifyErrorPayload(response.data)}`;
+            enqueueFallbackJob(data, reason);
+            throw new Error(`RabbitMQ publish was accepted but not routed. Response: ${stringifyErrorPayload(response.data)}`);
         }
+
+        logger.info(`Published to RabbitMQ: ${data.hotel_name}`);
+        return {
+            queued: true,
+            fallbackQueued: false
+        };
     } catch (err) {
-        logger.error(`RabbitMQ publish error: ${err.response?.data || err.message}`);
-        throw err;
+        const reason = `publish_error:${stringifyErrorPayload(err.response?.data || err.message)}`;
+        enqueueFallbackJob(data, reason);
+        logger.error(`RabbitMQ publish error: ${stringifyErrorPayload(err.response?.data || err.message)}`);
+        return {
+            queued: false,
+            fallbackQueued: true,
+            error: err
+        };
     }
 }
 
@@ -73,18 +112,34 @@ async function publishToQueue(data) {
 async function getOneMessage() {
     const url = `${RABBITMQ_BASE}/api/queues/${encodeURIComponent(VHOST)}/${QUEUE_NAME}/get`;
     const body = { count: 1, ackmode: 'ack_requeue_false', encoding: 'auto' };
+
     try {
         const response = await axios.post(url, body, {
             headers: {
                 Authorization: getAuthHeader(),
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 15000
         });
-        const messages = response.data;
-        if (!messages || messages.length === 0) return null;
-        return JSON.parse(messages[0].payload);
+
+        const messages = Array.isArray(response.data) ? response.data : [];
+        logger.debug(`RabbitMQ get response: status=${response.status}, messages=${messages.length}, vhost=${VHOST}, queue=${QUEUE_NAME}`);
+
+        if (messages.length === 0) {
+            return null;
+        }
+
+        const payload = messages[0]?.payload;
+        if (!payload) {
+            logger.warn('RabbitMQ returned a message without payload.');
+            return null;
+        }
+
+        const parsed = JSON.parse(payload);
+        logger.info(`RabbitMQ delivered message for hotel="${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}"`);
+        return parsed;
     } catch (err) {
-        logger.error(`RabbitMQ get error: ${err.response?.data || err.message}`);
+        logger.error(`RabbitMQ get error: ${stringifyErrorPayload(err.response?.data || err.message)}`);
         return null;
     }
 }
@@ -101,10 +156,17 @@ function consumeFromQueue(callback, intervalMs = 30000) {
         try {
             logger.info(`[${ts}] Polling queue...`);
             const data = await getOneMessage();
-            if (data) {
-                logger.info(`[${ts}] Got message for hotel: ${data.hotel_name}`);
-                await callback(data);
-                // Task 10: Immediate next poll if message was found
+            const fallbackJob = !data ? takeFallbackJob() : null;
+            const job = data || fallbackJob?.data || null;
+
+            if (job) {
+                if (fallbackJob) {
+                    logger.warn(`[${ts}] Processing fallback job directly for hotel="${job.hotel_name || job.hotel_website_url}" reason="${fallbackJob.reason}" queuedAt=${fallbackJob.queuedAt}`);
+                } else {
+                    logger.info(`[${ts}] Got message for hotel: ${job.hotel_name}`);
+                }
+
+                await callback(job);
                 setTimeout(poll, 100);
             } else {
                 logger.info(`[${ts}] Queue is empty or no message returned.`);
@@ -116,7 +178,6 @@ function consumeFromQueue(callback, intervalMs = 30000) {
         }
     }
 
-    // Start polling
     poll();
 }
 

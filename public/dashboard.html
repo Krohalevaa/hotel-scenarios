@@ -265,6 +265,13 @@
             margin-bottom: 12px;
         }
 
+        .script-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
         .badge {
             display: inline-flex;
             align-items: center;
@@ -276,11 +283,60 @@
             color: #3730a3;
         }
 
-        .script-text {
-            white-space: pre-wrap;
+        .script-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 1000;
+        }
+
+        .script-modal.open {
+            display: flex;
+        }
+
+        .script-modal-card {
+            width: min(900px, 100%);
+            max-height: 90vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            padding: 24px;
+        }
+
+        .script-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .script-modal-title {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .script-modal-meta {
+            display: grid;
+            gap: 8px;
             color: #334155;
-            line-height: 1.6;
-            margin-top: 12px;
+            margin-bottom: 18px;
+        }
+
+        .script-modal-text {
+            white-space: pre-wrap;
+            color: #0f172a;
+            line-height: 1.7;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
         }
 
         .empty {
@@ -324,6 +380,14 @@
 
             .menu {
                 grid-template-columns: 1fr;
+            }
+
+            .script-modal {
+                padding: 12px;
+            }
+
+            .script-modal-header {
+                flex-direction: column;
             }
         }
     </style>
@@ -420,6 +484,19 @@
                 </div>
             </section>
 
+            <div id="scriptModal" class="script-modal" aria-hidden="true">
+                <div class="script-modal-card">
+                    <div class="script-modal-header">
+                        <div>
+                            <h2 id="scriptModalTitle" class="script-modal-title">Сценарий</h2>
+                            <div id="scriptModalMeta" class="script-modal-meta"></div>
+                        </div>
+                        <button id="closeScriptModalBtn" class="ghost" type="button">Закрыть</button>
+                    </div>
+                    <div id="scriptModalText" class="script-modal-text"></div>
+                </div>
+            </div>
+
             <section id="profile" class="section">
                 <div class="grid">
                     <div class="card">
@@ -463,6 +540,10 @@
         const fullNameInput = document.getElementById('fullName');
         const contactEmailInput = document.getElementById('contactEmail');
         const scriptsList = document.getElementById('scriptsList');
+        const scriptModal = document.getElementById('scriptModal');
+        const scriptModalTitle = document.getElementById('scriptModalTitle');
+        const scriptModalMeta = document.getElementById('scriptModalMeta');
+        const scriptModalText = document.getElementById('scriptModalText');
 
         function showMessage(text, type = 'success') {
             globalMessage.textContent = text;
@@ -498,30 +579,140 @@
             return new Date(value).toLocaleString('ru-RU');
         }
 
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = String(value || '');
+            return div.innerHTML;
+        }
+
+        function decodeText(value) {
+            try {
+                return decodeURIComponent(String(value || ''));
+            } catch {
+                return String(value || '');
+            }
+        }
+
+        function formatDisplayText(value, fallback = '—') {
+            const decoded = decodeText(value).trim();
+            return decoded || fallback;
+        }
+
+        function normalizeScriptText(value) {
+            const text = String(value || '').trim();
+            if (!text) {
+                return '';
+            }
+
+            const lines = text.split(/\r?\n/).map((line) => line.trim());
+            const filteredLines = lines.filter((line, index) => {
+                if (!line) {
+                    return true;
+                }
+
+                const normalized = line.toLowerCase();
+                if (index === 0 && normalized.startsWith('welcome to ')) {
+                    return false;
+                }
+                if (normalized.includes('comfortable stay in')) {
+                    return false;
+                }
+                return true;
+            });
+
+            return filteredLines.join('\n').trim();
+        }
+
+        function openScriptModal(item) {
+            const normalizedScript = normalizeScriptText(item.final_script);
+            const hotelName = formatDisplayText(item.hotel_name, 'Сценарий');
+            const businessGoal = formatDisplayText(item.business_goal);
+            const hotelUrl = decodeText(item.hotel_website_url);
+            const hasUrl = Boolean(hotelUrl);
+
+            scriptModalTitle.textContent = hotelName;
+            scriptModalMeta.innerHTML = `
+                <div><strong>Статус:</strong> ${escapeHtml(formatDisplayText(item.status, 'new'))}</div>
+                <div><strong>Цель:</strong> ${escapeHtml(businessGoal)}</div>
+                <div>${hasUrl ? `<strong><a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Ссылка</a></strong>` : '—'}</div>
+            `;
+            scriptModalText.textContent = normalizedScript || 'Сценарий ещё не готов.';
+            scriptModal.classList.add('open');
+            scriptModal.setAttribute('aria-hidden', 'false');
+        }
+
+        async function openScriptModalById(scriptId) {
+            const item = window.__scriptsMap?.[scriptId];
+            if (!item) {
+                showMessage('Сценарий не найден.', 'error');
+                return;
+            }
+
+            openScriptModal({
+                ...item,
+                final_script: item.final_script || 'Загрузка сценария...'
+            });
+
+            try {
+                const response = await api(`/api/me/scripts/${item.id}`);
+                const fullItem = response.data || item;
+                window.__scriptsMap[scriptId] = fullItem;
+                openScriptModal(fullItem);
+            } catch (error) {
+                console.error('[dashboard] Failed to load full script:', error);
+                if (!item.final_script) {
+                    scriptModalText.textContent = 'Не удалось загрузить сценарий.';
+                }
+            }
+        }
+
+        function closeScriptModal() {
+            scriptModal.classList.remove('open');
+            scriptModal.setAttribute('aria-hidden', 'true');
+        }
+
         function renderScripts(items) {
             if (!items.length) {
                 scriptsList.innerHTML = '<div class="empty">Сценариев пока нет. Запусти первую генерацию в разделе «Генератор».</div>';
                 return;
             }
 
-            scriptsList.innerHTML = items.map((item) => `
+            scriptsList.innerHTML = items.map((item, index) => {
+                const hotelName = formatDisplayText(item.hotel_name, 'Без названия');
+                const businessGoal = formatDisplayText(item.business_goal);
+                const city = formatDisplayText(item.city);
+                const hotelUrl = decodeText(item.hotel_website_url);
+
+                window.__scriptsMap = window.__scriptsMap || {};
+                window.__scriptsMap[`script-${index}`] = item;
+
+                return `
         <article class="script-card">
           <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
             <div>
-              <h3 style="margin:0 0 8px;">${item.hotel_name || 'Без названия'}</h3>
-              <div style="color:#64748b;font-size:14px;">${item.hotel_website_url || ''}</div>
+              <h3 style="margin:0 0 8px;">${escapeHtml(hotelName)}</h3>
             </div>
             <div class="script-meta">
-              <span class="badge">${item.status || 'new'}</span>
-              <span class="badge">${formatDate(item.created_at)}</span>
-              <span class="badge">${item.language || 'Russian'}</span>
+              <span class="badge">${escapeHtml(formatDisplayText(item.status, 'new'))}</span>
+              <span class="badge">${escapeHtml(formatDate(item.created_at))}</span>
+              <span class="badge">${escapeHtml(formatDisplayText(item.language, 'Russian'))}</span>
             </div>
           </div>
-          <div style="margin-top:12px;color:#334155;"><strong>Цель:</strong> ${item.business_goal || '—'}</div>
-          <div style="margin-top:6px;color:#334155;"><strong>Город:</strong> ${item.city || '—'}</div>
-          <div class="script-text">${item.final_script || 'Сценарий ещё не готов.'}</div>
+          <div style="margin-top:12px;color:#334155;"><strong>Цель:</strong> ${escapeHtml(businessGoal)}</div>
+          <div style="margin-top:6px;color:#334155;"><strong>Город:</strong> ${escapeHtml(city)}</div>
+          <div style="margin-top:6px;color:#334155;">${hotelUrl ? `<a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Ссылка</a>` : '—'}</div>
+          <div class="script-actions">
+            <button class="primary view-script-btn" type="button" data-script-id="script-${index}">Посмотреть сценарий</button>
+          </div>
         </article>
-      `).join('');
+      `;
+            }).join('');
+
+            scriptsList.querySelectorAll('.view-script-btn').forEach((button) => {
+                button.addEventListener('click', async () => {
+                    await openScriptModalById(button.dataset.scriptId);
+                });
+            });
         }
 
         async function initSupabase() {
@@ -604,6 +795,18 @@
             });
         });
 
+        document.getElementById('closeScriptModalBtn').addEventListener('click', closeScriptModal);
+        scriptModal.addEventListener('click', (event) => {
+            if (event.target === scriptModal) {
+                closeScriptModal();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && scriptModal.classList.contains('open')) {
+                closeScriptModal();
+            }
+        });
+
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             console.log('[dashboard] Logout requested');
             await supabaseClient.auth.signOut();
@@ -660,116 +863,10 @@
                     body: JSON.stringify(hotels)
                 });
 
-                showMessage(`Bulk-генерация запущена для ${hotels.length} отелей.`);
+                showMessage(`Bulk-генерация запущена: ${hotels.length} отелей.`);
                 event.target.reset();
             } catch (error) {
                 console.error('[dashboard] Bulk generation failed:', error);
-                showMessage(error.message, 'error');
-            } finally {
-                button.disabled = false;
-            }
-        });
-
-        document.getElementById('profileForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            clearMessage();
-            const button = event.submitter;
-            button.disabled = true;
-
-            try {
-                console.log('[dashboard] Profile update submit');
-                const payload = await api('/api/me/profile', {
-                    method: 'PUT',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ full_name: fullNameInput.value.trim() })
-                });
-
-                currentProfile = { ...currentProfile, ...payload.data };
-                headerName.innerHTML = `<strong>${currentProfile.full_name || 'Пользователь'}</strong>`;
-                showMessage('Профиль обновлён.');
-            } catch (error) {
-                console.error('[dashboard] Profile update failed:', error);
-                showMessage(error.message, 'error');
-            } finally {
-                button.disabled = false;
-            }
-        });
-
-        async function readFileAsDataUrl(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
-                reader.readAsDataURL(file);
-            });
-        }
-
-        async function convertImageToJpegDataUrl(file) {
-            const imageUrl = URL.createObjectURL(file);
-
-            try {
-                const image = await new Promise((resolve, reject) => {
-                    const img = new Image();
-                    img.onload = () => resolve(img);
-                    img.onerror = () => reject(new Error('Не удалось обработать изображение. Попробуй выбрать JPG или PNG.'));
-                    img.src = imageUrl;
-                });
-
-                const canvas = document.createElement('canvas');
-                canvas.width = image.naturalWidth || image.width;
-                canvas.height = image.naturalHeight || image.height;
-
-                const context = canvas.getContext('2d');
-                context.fillStyle = '#ffffff';
-                context.fillRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(image, 0, 0);
-
-                return canvas.toDataURL('image/jpeg', 0.92);
-            } finally {
-                URL.revokeObjectURL(imageUrl);
-            }
-        }
-
-        document.getElementById('uploadAvatarBtn').addEventListener('click', async () => {
-            clearMessage();
-            const fileInput = document.getElementById('avatarFile');
-            const file = fileInput.files[0];
-
-            if (!file) {
-                showMessage('Сначала выбери изображение.', 'warning');
-                return;
-            }
-
-            const button = document.getElementById('uploadAvatarBtn');
-            button.disabled = true;
-
-            try {
-                const isHeic = ['image/heic', 'image/heif'].includes(file.type);
-                const dataUrl = isHeic
-                    ? await convertImageToJpegDataUrl(file)
-                    : await readFileAsDataUrl(file);
-
-                console.log('[dashboard] Avatar upload submit:', {
-                    size: file.size,
-                    type: file.type,
-                    convertedToJpeg: isHeic
-                });
-
-                if (isHeic) {
-                    showMessage('HEIC/HEIF автоматически конвертирован в JPEG перед загрузкой.', 'warning');
-                }
-
-                const payload = await api('/api/me/avatar', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ avatar: dataUrl })
-                });
-
-                setAvatar(payload.data.publicUrl);
-                currentProfile = { ...currentProfile, avatar_url: payload.data.publicUrl };
-                showMessage('Аватарка обновлена.');
-            } catch (error) {
-                console.error('[dashboard] Avatar upload failed:', error);
                 showMessage(error.message, 'error');
             } finally {
                 button.disabled = false;
@@ -787,7 +884,75 @@
             }
         });
 
-        (async function init() {
+        document.getElementById('profileForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearMessage();
+            const button = event.submitter;
+            button.disabled = true;
+
+            try {
+                console.log('[dashboard] Profile update submit');
+                const payload = await api('/api/me/profile', {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        full_name: fullNameInput.value.trim()
+                    })
+                });
+
+                currentProfile = {
+                    ...currentProfile,
+                    ...payload.data
+                };
+                headerName.innerHTML = `<strong>${currentProfile.full_name || 'Пользователь'}</strong>`;
+                showMessage('Профиль сохранён.');
+            } catch (error) {
+                console.error('[dashboard] Profile update failed:', error);
+                showMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('uploadAvatarBtn').addEventListener('click', async () => {
+            clearMessage();
+            const fileInput = document.getElementById('avatarFile');
+            const file = fileInput.files?.[0];
+
+            if (!file) {
+                showMessage('Выбери файл для загрузки.', 'warning');
+                return;
+            }
+
+            const button = document.getElementById('uploadAvatarBtn');
+            button.disabled = true;
+
+            try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
+                    reader.readAsDataURL(file);
+                });
+
+                const payload = await api('/api/me/avatar', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ avatar: dataUrl })
+                });
+
+                const avatarUrl = payload.data.avatar_url || payload.data.publicUrl;
+                setAvatar(avatarUrl);
+                showMessage('Аватарка обновлена.');
+            } catch (error) {
+                console.error('[dashboard] Avatar upload failed:', error);
+                showMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        (async function bootstrap() {
             const initialized = await initSupabase();
             if (!initialized) return;
 
@@ -795,10 +960,9 @@
             if (!hasSession) return;
 
             try {
-                await loadProfile();
-                await loadScripts();
+                await Promise.all([loadProfile(), loadScripts()]);
             } catch (error) {
-                console.error('[dashboard] Initial load failed:', error);
+                console.error('[dashboard] Bootstrap failed:', error);
                 showMessage(error.message, 'error');
             }
         })();

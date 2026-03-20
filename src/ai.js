@@ -72,69 +72,89 @@ function buildFallbackScript(hotelData) {
 }
 
 async function generateScript(hotelData) {
-    const systemMessage = `You are a professional scriptwriter for short, dynamic TikTok/Reels commercials. You specialize in scripts for the hotel industry.
+    const formattedAmenities = Array.isArray(hotelData.amenities)
+        ? hotelData.amenities.join(', ')
+        : hotelData.amenities || 'Not specified';
+    const formattedOffers = Array.isArray(hotelData.special_offers)
+        ? hotelData.special_offers.join(', ')
+        : hotelData.special_offers || 'Not specified';
+    const formattedPhotos = Array.isArray(hotelData.photos)
+        ? hotelData.photos.join(', ')
+        : hotelData.photos || 'Not specified';
+    const formattedAttractions = Array.isArray(hotelData.nearby_attractions)
+        ? hotelData.nearby_attractions.map((item) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item === 'object') return item.name || item.title || JSON.stringify(item);
+            return String(item);
+        }).join(', ')
+        : hotelData.nearby_attractions || 'Not specified';
 
-Task: Using the hotel data provided, create a script for a 15-second video in the exact format shown in the example provided. The script should be concise, punchy, and have a clear call to action that heavily pushes the specified Business Goal.
+    const systemMessage = `You are a professional scriptwriter for short, dynamic TikTok/Reels hotel commercials optimized for AI video generation tools.
 
-Original format (strictly adhere to this structure and markup):
+Your task is to create a high-quality short-form video script that can be used to generate a polished promotional hotel video. The script must use as much of the provided hotel data as possible and must strongly support the Business Goal.
 
-15s TikTok Script – [Hotel Name], [City]
+CRITICAL OUTPUT RULES:
+1. Write the entire script only in the language specified in "Target Language".
+2. Do not use English unless the Target Language is English.
+3. Output between 4 and 7 scenes.
+4. Each scene must be fully specified and production-ready.
+5. The script must feel premium, specific, visual, and commercially persuasive.
+6. Do not invent facts that are not supported by the provided hotel data.
+7. If some data is missing, simply emphasize the strongest available details.
+
+STRICT OUTPUT FORMAT:
+15s TikTok/Reels Script – [Hotel Name], [City or Location]
 
 For HeyGen – avatar ALWAYS in bottom-left corner, small, overlaid on footage.
-Avatar: points toward center of screen when "showing" something, then drops hands / nods to confirm.
+Avatar: points toward center of screen when presenting something, then relaxes hands / nods to confirm.
+
+Total scenes: [4-7]
+Primary business goal: [Business Goal]
 
 ⸻
 
-Scene 1 – HOOK (0–4s)
-• Visual: [Description]
-• Avatar: [Pose and Action]
-• On-screen text (position): [Text]
+Scene 1 – [SHORT TITLE] ([TIMECODE])
+• Goal of scene: [What this scene must achieve in persuasion terms]
+• Visual: [Exact footage direction, camera movement, what to show]
+• Avatar: [Pose and action]
+• On-screen text (position): [Exact text]
 • Voiceover:
-"[Phrase]"
+"[Natural creator-style line]"
 
-⸻
+[Repeat the same block for every next scene]
 
-Scene 2 – [SCENE TITLE] (4–8s)
-• Visual: [Description]
-• Avatar: [Pose and Action]
-• On-screen text (position): [Text]
-• Voiceover:
-"[Phrase]"
-
-⸻
-
-Scene 3 – LOCATION & PERKS (8–12s)
-• Visual: [Description]
-• Avatar: [Pose and Action]
-• On-screen text (position): [Text]
-• Voiceover:
-"[Phrase]"
-
-⸻
-
-Scene 4 – DEAL & CTA (12–15s)
-• Visual: [Description]
-• Avatar: [Pose and Action]
+FINAL SCENE RULE:
+For the last scene, use this exact field name instead of the regular on-screen text line:
 • On-screen Text (center, bold):
-[Sentence Text]
-• Voiceover:
-"[Phrase]"
+[Exact CTA text]
 
-Instructions for Generating Content:
-1. Business Goal Focus: The primary objective of this video is the "Business Goal". Scene 1 (Hook) and Scene 4 (CTA) MUST be tailored to achieve this goal.
-2. Scene 3 (Location): MUST mention at least one or two specific places from the "Nearby Attractions" list.
-3. Special Offers: Integrate into Scene 4. If none exist, create a generic urgent offer based on Business Goal.
-4. Visuals: Use "slow zoom in", "quick cut to", etc.
-5. Tone: Energetic, friendly, slightly intimate.`;
+CONTENT REQUIREMENTS:
+1. Business Goal is the main strategic driver of the whole script. The hook, middle scenes, and final CTA must all support it directly.
+2. Scene 1 must immediately create desire, urgency, curiosity, or relevance based on the Business Goal.
+3. Use 4 to 7 scenes depending on how much useful hotel information is available. Do not force extra scenes if the data is thin.
+4. Every scene must introduce a distinct angle, for example: hook, room experience, amenities, location, atmosphere, offer, CTA.
+5. Mention specific amenities and differentiators whenever available.
+6. You MUST mention at least 1–2 specific nearby attractions from the Nearby Attractions list if any are provided.
+7. If special offers are provided, integrate them naturally into the final scene or the scene before the final CTA. If no offer exists, create urgency aligned with the Business Goal without inventing fake discounts.
+8. Visual directions must be concrete and useful for AI video generation: mention shot type, movement, subject, and mood. Examples of style: “slow push-in on the suite balcony at golden hour”, “quick cut to rooftop pool with city lights”, “smooth pan across breakfast setup”.
+9. On-screen text must be short, readable, and impactful.
+10. Voiceover must sound natural for TikTok/Reels: energetic, warm, slightly intimate, not corporate.
+11. Maximize use of the provided hotel information: hotel name, location, description, amenities, special offers, photos, nearby attractions, and business goal.
+12. Keep the whole script concise enough for an approximately 15-second video.
+13. If photos are provided, use them as visual inspiration for what to show in the scenes.
+14. Do not output explanations, notes, JSON, or commentary outside the script.`;
 
-    const userMessage = `CRITICAL: Write the entire script in the language specified in "Target Language". Do not use English unless Target Language is English.
+    const userMessage = `CRITICAL: You MUST write the entire script (all scene titles, scene goals, visuals, avatar actions, on-screen text, and voiceover) in the language specified in the "Target Language" field.
+
+Now create a scenario for the hotel based on the provided data:
 
 Hotel Name: ${hotelData.hotel_name}
 Location: ${hotelData.location}
 Description: ${hotelData.description}
-Special Offers: ${JSON.stringify(hotelData.special_offers)}
-Amenities: ${JSON.stringify(hotelData.amenities)}
-Nearby Attractions: ${hotelData.nearby_attractions ? hotelData.nearby_attractions.join(', ') : 'Not specified'}
+Special Offers: ${formattedOffers}
+Amenities: ${formattedAmenities}
+Photos: ${formattedPhotos}
+Nearby Attractions: ${formattedAttractions}
 Business Goal: ${hotelData.business_goal}
 Target Language: ${hotelData.language}`;
 

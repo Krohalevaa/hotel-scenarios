@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hotel Scenarios — Кабинет</title>
+    <title>Hotel Scenarios — Dashboard</title>
     <style>
         :root {
             --bg: #f8fafc;
@@ -430,26 +430,26 @@
         <aside>
             <div class="logo">Hotel Scenarios</div>
             <div class="menu">
-                <button class="nav-btn active" data-section="generator">Генератор</button>
-                <button class="nav-btn" data-section="scripts">Мои сценарии</button>
-                <button class="nav-btn" data-section="profile">Профиль</button>
+                <button class="nav-btn active" data-section="generator">Generator</button>
+                <button class="nav-btn" data-section="scripts">My Scripts</button>
+                <button class="nav-btn" data-section="profile">Profile</button>
             </div>
         </aside>
 
         <main>
             <div class="topbar">
                 <div>
-                    <h1>Личный кабинет</h1>
-                    <p>Профиль, сценарии, достопримечательности и исходные данные отелей сохраняются в новой структуре
-                        базы.</p>
+                    <h1>Dashboard</h1>
+                    <p>Profiles, scripts, attractions, and hotel source data are stored in the new database structure.
+                    </p>
                 </div>
                 <div class="userbox">
                     <img id="headerAvatar" class="avatar" alt="avatar">
                     <div>
-                        <div id="headerName"><strong>Загрузка...</strong></div>
+                        <div id="headerName"><strong>Loading...</strong></div>
                         <div id="headerEmail" style="color:#64748b;font-size:14px;"></div>
                     </div>
-                    <button id="logoutBtn" class="danger">Выйти</button>
+                    <button id="logoutBtn" class="danger">Log Out</button>
                 </div>
             </div>
 
@@ -458,34 +458,33 @@
             <section id="generator" class="section active">
                 <div class="grid">
                     <div class="card">
-                        <h2>Одиночная генерация</h2>
+                        <h2>Single Generation</h2>
                         <form id="singleGeneratorForm" class="stack">
                             <div>
-                                <label for="hotelUrl">Сайт отеля</label>
+                                <label for="hotelUrl">Hotel website</label>
                                 <input id="hotelUrl" type="url" placeholder="https://hotel.com" required>
                             </div>
                             <div>
-                                <label for="businessGoal">Бизнес-цель</label>
-                                <input id="businessGoal" type="text" placeholder="Увеличить бронирования на выходные"
-                                    required>
+                                <label for="businessGoal">Business goal</label>
+                                <input id="businessGoal" type="text" placeholder="Increase weekend bookings" required>
                             </div>
                             <div>
-                                <label for="city">Город</label>
-                                <input id="city" type="text" placeholder="Москва" required>
+                                <label for="city">City</label>
+                                <input id="city" type="text" placeholder="London" required>
                             </div>
                             <div>
-                                <label for="contactEmail">Email для результата</label>
+                                <label for="contactEmail">Result email</label>
                                 <input id="contactEmail" type="email" placeholder="you@example.com">
                             </div>
                             <div>
-                                <label for="language">Язык сценария</label>
+                                <label for="language">Script language</label>
                                 <select id="language">
                                     <option value="Russian">Russian</option>
                                     <option value="English">English</option>
                                     <option value="Spanish">Spanish</option>
                                 </select>
                             </div>
-                            <button class="primary" type="submit">Запустить генерацию</button>
+                            <button class="primary" type="submit">Start generation</button>
                         </form>
                     </div>
 
@@ -493,12 +492,12 @@
                         <h2>Bulk upload</h2>
                         <form id="bulkGeneratorForm" class="stack">
                             <div>
-                                <label for="bulkJson">JSON-массив отелей</label>
+                                <label for="bulkJson">Hotels JSON array</label>
                                 <textarea id="bulkJson"
                                     placeholder='[{"hotel_website_url":"https://hotel.com","city":"Paris","business_goal":"Increase direct bookings"}]'
                                     required></textarea>
                             </div>
-                            <button class="primary" type="submit">Запустить bulk-генерацию</button>
+                            <button class="primary" type="submit">Start bulk generation</button>
                         </form>
                     </div>
                 </div>
@@ -508,11 +507,11 @@
                 <div class="card full">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                         <div>
-                            <h2>Мои сценарии</h2>
-                            <p style="margin:0;color:#64748b;">Каждая запись хранит сценарий, достопримечательности и
-                                исходные данные отеля.</p>
+                            <h2>My Scripts</h2>
+                            <p style="margin:0;color:#64748b;">Each record stores the script, nearby attractions, and
+                                hotel source data.</p>
                         </div>
-                        <button id="refreshScriptsBtn" class="ghost">Обновить список</button>
+                        <button id="refreshScriptsBtn" class="ghost">Refresh list</button>
                     </div>
                     <div id="scriptsList" class="scripts" style="margin-top:18px;"></div>
                 </div>
@@ -522,19 +521,19 @@
                 <div class="script-modal-card">
                     <div class="script-modal-header">
                         <div>
-                            <h2 id="scriptModalTitle" class="script-modal-title">Сценарий</h2>
+                            <h2 id="scriptModalTitle" class="script-modal-title">Script</h2>
                             <div id="scriptModalMeta" class="script-modal-meta"></div>
                         </div>
-                        <button id="closeScriptModalBtn" class="ghost" type="button">Закрыть</button>
+                        <button id="closeScriptModalBtn" class="ghost" type="button">Close</button>
                     </div>
                     <div id="scriptModalText" class="script-modal-text"></div>
                     <div class="details-grid">
                         <div class="detail-card">
-                            <h3>Достопримечательности рядом</h3>
+                            <h3>Nearby Attractions</h3>
                             <ul id="scriptAttractions" class="detail-list"></ul>
                         </div>
                         <div class="detail-card">
-                            <h3>Исходные данные отеля</h3>
+                            <h3>Hotel Source Data</h3>
                             <ul id="scriptSourceData" class="detail-list"></ul>
                         </div>
                     </div>
@@ -544,33 +543,33 @@
             <section id="profile" class="section">
                 <div class="grid">
                     <div class="card">
-                        <h2>Профиль</h2>
+                        <h2>Profile</h2>
                         <form id="profileForm" class="stack">
                             <div>
-                                <label for="firstName">Имя</label>
-                                <input id="firstName" type="text" placeholder="Анна">
+                                <label for="firstName">First name</label>
+                                <input id="firstName" type="text" placeholder="Anna">
                             </div>
                             <div>
-                                <label for="lastName">Фамилия</label>
-                                <input id="lastName" type="text" placeholder="Иванова">
+                                <label for="lastName">Last name</label>
+                                <input id="lastName" type="text" placeholder="Johnson">
                             </div>
                             <div>
                                 <label for="profileEmail">Email</label>
                                 <input id="profileEmail" type="email" disabled>
                             </div>
-                            <button class="primary" type="submit">Сохранить профиль</button>
+                            <button class="primary" type="submit">Save profile</button>
                         </form>
                     </div>
 
                     <div class="card">
-                        <h2>Аватарка</h2>
+                        <h2>Avatar</h2>
                         <div class="stack">
                             <img id="profileAvatar" class="avatar" alt="avatar preview" style="width:96px;height:96px;">
                             <div>
-                                <label for="avatarFile">Загрузить изображение</label>
+                                <label for="avatarFile">Upload image</label>
                                 <input id="avatarFile" type="file" accept="image/*">
                             </div>
-                            <button id="uploadAvatarBtn" class="primary" type="button">Загрузить аватарку</button>
+                            <button id="uploadAvatarBtn" class="primary" type="button">Upload avatar</button>
                         </div>
                     </div>
                 </div>
@@ -632,7 +631,7 @@
 
         function formatDate(value) {
             if (!value) return '—';
-            return new Date(value).toLocaleString('ru-RU');
+            return new Date(value).toLocaleDateString('en-GB');
         }
 
         function escapeHtml(value) {
@@ -681,20 +680,14 @@
             const features = Array.isArray(sourceData.key_features) ? sourceData.key_features.join(', ') : '—';
             return [
                 `URL: ${formatDisplayText(sourceData.hotel_url)}`,
-                `Отель: ${formatDisplayText(sourceData.hotel_name)}`,
-                `Город: ${formatDisplayText(sourceData.city)}`,
-                `Страна: ${formatDisplayText(sourceData.country)}`,
-                `Адрес: ${formatDisplayText(sourceData.address)}`,
-                `Широта: ${formatDisplayText(sourceData.latitude)}`,
-                `Долгота: ${formatDisplayText(sourceData.longitude)}`,
-                `Достопримечательности найдены: ${sourceData.attractions_found ? 'Yes' : 'No'}`,
-                `Ключевые особенности: ${features || '—'}`
+                `Hotel name: ${formatDisplayText(sourceData.hotel_name)}`,
+                `City: ${formatDisplayText(sourceData.city)}`
             ];
         }
 
         function openScriptModal(item) {
             const normalizedScript = normalizeScriptText(item.final_script);
-            const hotelName = formatDisplayText(item.hotel_name, 'Сценарий');
+            const hotelName = formatDisplayText(item.hotel_name, 'Script');
             const businessGoal = formatDisplayText(item.business_goal);
             const hotelUrl = decodeText(item.hotel_url);
             const hasUrl = Boolean(hotelUrl);
@@ -707,15 +700,15 @@
 
             scriptModalTitle.textContent = hotelName;
             scriptModalMeta.innerHTML = `
-                <div><strong>Статус:</strong> ${escapeHtml(formatDisplayText(item.status, 'new'))}</div>
-                <div><strong>Цель:</strong> ${escapeHtml(businessGoal)}</div>
-                <div><strong>Город:</strong> ${escapeHtml(formatDisplayText(item.city))}</div>
-                <div><strong>Язык:</strong> ${escapeHtml(formatDisplayText(item.language, 'Russian'))}</div>
-                <div>${hasUrl ? `<strong><a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Ссылка на отель</a></strong>` : '—'}</div>
+                <div><strong>Status:</strong> ${escapeHtml(formatDisplayText(item.status, 'new'))}</div>
+                <div><strong>Goal:</strong> ${escapeHtml(businessGoal)}</div>
+                <div><strong>City:</strong> ${escapeHtml(formatDisplayText(item.city))}</div>
+                <div><strong>Language:</strong> ${escapeHtml(formatDisplayText(item.language, 'English'))}</div>
+                <div>${hasUrl ? `<strong><a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Hotel link</a></strong>` : '—'}</div>
             `;
-            scriptModalText.textContent = normalizedScript || 'Сценарий ещё не готов.';
-            renderList(scriptAttractions, attractions, 'Достопримечательности пока не найдены.');
-            renderList(scriptSourceData, buildSourceDataItems(sourceData), 'Исходные данные ещё не сохранены.');
+            scriptModalText.textContent = normalizedScript || 'The script is not ready yet.';
+            renderList(scriptAttractions, attractions, 'No attractions found yet.');
+            renderList(scriptSourceData, buildSourceDataItems(sourceData), 'Source data has not been saved yet.');
             scriptModal.classList.add('open');
             scriptModal.setAttribute('aria-hidden', 'false');
         }
@@ -723,7 +716,7 @@
         async function openScriptModalById(scriptId) {
             const item = window.__scriptsMap?.[scriptId];
             if (!item) {
-                showMessage('Сценарий не найден.', 'error');
+                showMessage('Script not found.', 'error');
                 return;
             }
 
@@ -737,7 +730,7 @@
             } catch (error) {
                 console.error('[dashboard] Failed to load full script:', error);
                 if (!item.final_script) {
-                    scriptModalText.textContent = 'Не удалось загрузить сценарий.';
+                    scriptModalText.textContent = 'Failed to load the script.';
                 }
             }
         }
@@ -749,13 +742,13 @@
 
         function renderScripts(items) {
             if (!items.length) {
-                scriptsList.innerHTML = '<div class="empty">Сценариев пока нет. Запусти первую генерацию в разделе «Генератор».</div>';
+                scriptsList.innerHTML = '<div class="empty">No scripts yet. Start your first generation in the Generator section.</div>';
                 return;
             }
 
             window.__scriptsMap = {};
             scriptsList.innerHTML = items.map((item, index) => {
-                const hotelName = formatDisplayText(item.hotel_name, 'Без названия');
+                const hotelName = formatDisplayText(item.hotel_name, 'Untitled');
                 const businessGoal = formatDisplayText(item.business_goal);
                 const city = formatDisplayText(item.city);
                 const hotelUrl = decodeText(item.hotel_url);
@@ -771,15 +764,15 @@
             <div class="script-meta">
               <span class="badge">${escapeHtml(formatDisplayText(item.status, 'new'))}</span>
               <span class="badge">${escapeHtml(formatDate(item.created_at))}</span>
-              <span class="badge">${escapeHtml(formatDisplayText(item.language, 'Russian'))}</span>
+              <span class="badge">${escapeHtml(formatDisplayText(item.language, 'English'))}</span>
             </div>
           </div>
-          <div style="margin-top:12px;color:#334155;"><strong>Цель:</strong> ${escapeHtml(businessGoal)}</div>
-          <div style="margin-top:6px;color:#334155;"><strong>Город:</strong> ${escapeHtml(city)}</div>
+          <div style="margin-top:12px;color:#334155;"><strong>Goal:</strong> ${escapeHtml(businessGoal)}</div>
+          <div style="margin-top:6px;color:#334155;"><strong>City:</strong> ${escapeHtml(city)}</div>
           <div style="margin-top:6px;color:#334155;"><strong>Email:</strong> ${escapeHtml(formatDisplayText(item.contact_email))}</div>
-          <div style="margin-top:6px;color:#334155;">${hotelUrl ? `<a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Ссылка</a>` : '—'}</div>
+          <div style="margin-top:6px;color:#334155;">${hotelUrl ? `<a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Open link</a>` : '—'}</div>
           <div class="script-actions">
-            <button class="primary view-script-btn" type="button" data-script-id="${scriptId}">Посмотреть сценарий</button>
+            <button class="primary view-script-btn" type="button" data-script-id="${scriptId}">View script</button>
           </div>
         </article>
       `;
@@ -805,7 +798,7 @@
                 return true;
             } catch (error) {
                 console.error('[dashboard] Failed to initialize Supabase client:', error);
-                showMessage(error.message || 'Не удалось инициализировать Supabase.', 'error');
+                showMessage(error.message || 'Failed to initialize Supabase.', 'error');
                 return false;
             }
         }
@@ -830,7 +823,7 @@
             const profileResponse = await api('/api/me/profile');
             currentProfile = profileResponse.data;
             const fullName = [currentProfile.first_name, currentProfile.last_name].filter(Boolean).join(' ').trim();
-            headerName.innerHTML = `<strong>${fullName || 'Пользователь'}</strong>`;
+            headerName.innerHTML = `<strong>${fullName || 'User'}</strong>`;
             headerEmail.textContent = currentProfile.email || '';
             firstNameInput.value = currentProfile.first_name || '';
             lastNameInput.value = currentProfile.last_name || '';
@@ -840,7 +833,7 @@
         }
 
         async function loadScripts() {
-            scriptsList.innerHTML = '<div class="empty">Загрузка сценариев...</div>';
+            scriptsList.innerHTML = '<div class="empty">Loading scripts...</div>';
             const scriptsResponse = await api('/api/me/scripts');
             renderScripts(scriptsResponse.data || []);
         }
@@ -902,7 +895,7 @@
                     })
                 });
 
-                showMessage('Генерация поставлена в очередь. Обнови список сценариев через несколько секунд.');
+                showMessage('Generation has been queued. Refresh the scripts list in a few seconds.');
                 event.target.reset();
                 contactEmailInput.value = currentProfile?.email || '';
             } catch (error) {
@@ -922,7 +915,7 @@
             try {
                 const hotels = JSON.parse(document.getElementById('bulkJson').value);
                 if (!Array.isArray(hotels)) {
-                    throw new Error('Нужен JSON-массив объектов отелей.');
+                    throw new Error('A JSON array of hotel objects is required.');
                 }
 
                 await api('/api/bulk-generate-script', {
@@ -931,7 +924,7 @@
                     body: JSON.stringify(hotels)
                 });
 
-                showMessage(`Bulk-генерация запущена: ${hotels.length} отелей.`);
+                showMessage(`Bulk generation started: ${hotels.length} hotels.`);
                 event.target.reset();
             } catch (error) {
                 console.error('[dashboard] Bulk generation failed:', error);
@@ -945,7 +938,7 @@
             clearMessage();
             try {
                 await loadScripts();
-                showMessage('Список сценариев обновлён.');
+                showMessage('Scripts list refreshed.');
             } catch (error) {
                 console.error('[dashboard] Refresh scripts failed:', error);
                 showMessage(error.message, 'error');
@@ -973,8 +966,8 @@
                     ...payload.data
                 };
                 const updatedFullName = [currentProfile.first_name, currentProfile.last_name].filter(Boolean).join(' ').trim();
-                headerName.innerHTML = `<strong>${updatedFullName || 'Пользователь'}</strong>`;
-                showMessage('Профиль сохранён.');
+                headerName.innerHTML = `<strong>${updatedFullName || 'User'}</strong>`;
+                showMessage('Profile saved.');
             } catch (error) {
                 console.error('[dashboard] Profile update failed:', error);
                 showMessage(error.message, 'error');
@@ -989,7 +982,7 @@
             const file = fileInput.files?.[0];
 
             if (!file) {
-                showMessage('Выбери файл для загрузки.', 'warning');
+                showMessage('Choose a file to upload.', 'warning');
                 return;
             }
 
@@ -1000,7 +993,7 @@
                 const dataUrl = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
+                    reader.onerror = () => reject(new Error('Failed to read the file.'));
                     reader.readAsDataURL(file);
                 });
 
@@ -1012,7 +1005,7 @@
 
                 const avatarUrl = payload.data.avatar_url || payload.data.publicUrl;
                 setAvatar(avatarUrl);
-                showMessage('Аватарка обновлена.');
+                showMessage('Avatar updated.');
             } catch (error) {
                 console.error('[dashboard] Avatar upload failed:', error);
                 showMessage(error.message, 'error');

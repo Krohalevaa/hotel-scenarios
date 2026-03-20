@@ -4,6 +4,7 @@ const ai = require('./ai');
 const db = require('./db');
 const email = require('./email');
 const logger = require('./logger');
+const config = require('./config');
 const { consumeFromQueue } = require('./rabbitmq');
 
 function collectKeyFeatures(hotelData) {
@@ -133,13 +134,13 @@ async function processHotelData(hotelData) {
             logger.debug(`Fallback script created after empty AI response for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
         }
 
-        logger.info(`Persisting completed scenario ${scenarioId}: finalLength=${scriptContent?.length || 0}, emailTarget=${hotelData.contact_email || 'akrohaleva67@gmail.com'}`);
+        logger.info(`Persisting completed scenario ${scenarioId}: finalLength=${scriptContent?.length || 0}, emailTarget=${hotelData.contact_email || config.GUEST_USER_EMAIL || 'akrohaleva67@gmail.com'}`);
         await db.updateScriptStatus(scenarioId, 'completed', scriptContent);
         logger.info(`[worker] Final DB update completed: scenarioId=${scenarioId}, finalScriptLength=${scriptContent?.length || 0}`);
         logger.info('Script generated successfully.');
 
         try {
-            const targetEmail = hotelData.contact_email || 'akrohaleva67@gmail.com';
+            const targetEmail = hotelData.contact_email || config.GUEST_USER_EMAIL || 'akrohaleva67@gmail.com';
             logger.info(`Sending email to ${targetEmail}...`);
             await email.sendEmail(targetEmail, `Video Script: ${hotelData.hotel_name}`, scriptContent);
             logger.info('Email sent successfully.');

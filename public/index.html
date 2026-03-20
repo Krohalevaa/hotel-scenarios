@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hotel Scenarios — Вход</title>
+  <title>Hotel Scenarios — Sign In</title>
   <style>
     :root {
       color-scheme: light;
@@ -75,6 +75,72 @@
       max-width: 520px;
     }
 
+    .hero-visual {
+      position: relative;
+      min-height: 320px;
+      border-radius: 28px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(96, 165, 250, 0.35), transparent 0 18%),
+        radial-gradient(circle at 72% 24%, rgba(14, 165, 233, 0.35), transparent 0 16%),
+        radial-gradient(circle at 82% 68%, rgba(59, 130, 246, 0.28), transparent 0 18%),
+        radial-gradient(circle at 34% 74%, rgba(125, 211, 252, 0.22), transparent 0 14%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-visual svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .hero-visual-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.28));
+    }
+
+    .hero-visual-caption {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .hero-visual-badge {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 13px;
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-visual-stat {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.34);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: white;
+      min-width: 180px;
+      backdrop-filter: blur(12px);
+    }
+
+    .hero-visual-stat strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
     .feature-list {
       display: grid;
       gap: 14px;
@@ -118,7 +184,7 @@
 
     .tabs {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
       margin-bottom: 24px;
       background: #eff6ff;
@@ -166,7 +232,8 @@
       color: #334155;
     }
 
-    input {
+    input,
+    select {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -177,7 +244,8 @@
       background: white;
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       border-color: #93c5fd;
       box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
     }
@@ -262,52 +330,138 @@
     <section class="hero">
       <div>
         <div class="brand" style="color:white;opacity:0.8;">Hotel Scenarios</div>
-        <h1>Сценарии для отелей, которые собираются из данных сайта и гео-аналитики</h1>
-        <p>Сервис сохраняет профиль пользователя, сценарии, найденные достопримечательности и исходные данные отеля в
-          базе данных.</p>
+        <h1>Need a powerful video script for TikTok or Instagram Reels?</h1>
+        <p>Send us your hotel website, goal, and city — our service will generate a ready-to-use script and deliver it
+          straight to your email.</p>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <svg viewBox="0 0 640 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lineGlow" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgba(125,211,252,0.15)" />
+              <stop offset="50%" stop-color="rgba(96,165,250,0.9)" />
+              <stop offset="100%" stop-color="rgba(59,130,246,0.15)" />
+            </linearGradient>
+            <filter id="softGlow">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <path d="M98 120C156 96 214 90 274 102C334 114 388 148 446 154C500 160 548 142 594 112"
+            stroke="url(#lineGlow)" stroke-width="2.5" stroke-linecap="round" opacity="0.85" />
+          <path d="M92 236C146 214 198 182 252 176C314 170 370 196 430 214C492 232 548 238 594 220"
+            stroke="url(#lineGlow)" stroke-width="2.5" stroke-linecap="round" opacity="0.75" />
+          <path d="M164 82C212 126 258 166 320 182C384 198 454 190 534 150" stroke="url(#lineGlow)" stroke-width="2"
+            stroke-linecap="round" opacity="0.55" />
+          <path d="M150 270C210 238 284 226 350 242C418 258 486 294 548 286" stroke="url(#lineGlow)" stroke-width="2"
+            stroke-linecap="round" opacity="0.55" />
+
+          <g filter="url(#softGlow)">
+            <circle cx="98" cy="120" r="6" fill="#7dd3fc" />
+            <circle cx="164" cy="82" r="5" fill="#60a5fa" />
+            <circle cx="214" cy="98" r="7" fill="#93c5fd" />
+            <circle cx="274" cy="102" r="6" fill="#38bdf8" />
+            <circle cx="320" cy="182" r="8" fill="#ffffff" />
+            <circle cx="388" cy="148" r="6" fill="#60a5fa" />
+            <circle cx="446" cy="154" r="7" fill="#7dd3fc" />
+            <circle cx="534" cy="150" r="6" fill="#93c5fd" />
+            <circle cx="594" cy="112" r="7" fill="#38bdf8" />
+            <circle cx="92" cy="236" r="6" fill="#7dd3fc" />
+            <circle cx="146" cy="214" r="5" fill="#60a5fa" />
+            <circle cx="252" cy="176" r="7" fill="#93c5fd" />
+            <circle cx="430" cy="214" r="6" fill="#38bdf8" />
+            <circle cx="548" cy="238" r="7" fill="#7dd3fc" />
+            <circle cx="594" cy="220" r="6" fill="#60a5fa" />
+            <circle cx="150" cy="270" r="5" fill="#93c5fd" />
+            <circle cx="350" cy="242" r="7" fill="#ffffff" />
+            <circle cx="486" cy="294" r="6" fill="#38bdf8" />
+            <circle cx="548" cy="286" r="5" fill="#7dd3fc" />
+          </g>
+        </svg>
+        <div class="hero-visual-overlay"></div>
+        <div class="hero-visual-caption">
+          <div class="hero-visual-badge">Global hotel network • AI script delivery</div>
+          <div class="hero-visual-stat">
+            <strong>24/7</strong>
+            <span>Connected hotel storytelling across cities and markets</span>
+          </div>
+        </div>
       </div>
 
       <div class="feature-list">
-        <div class="feature">Профиль пользователя: имя, фамилия, email, avatar, user_id</div>
-        <div class="feature">Сценарии: URL отеля, цель, язык, статус, название отеля и финальный script</div>
-        <div class="feature">Исходные данные: адрес, координаты, страна, ключевые особенности и флаг
-          достопримечательностей</div>
+        <div class="feature">Fast AI-powered script generation for hotel marketing videos</div>
+        <div class="feature">Perfect for TikTok, Instagram Reels, ads, and social content</div>
+        <div class="feature">No account required — just fill out the form and get the result by email</div>
       </div>
     </section>
 
     <section class="panel">
-      <div class="brand">Supabase Auth</div>
-      <h2>Вход и регистрация</h2>
-      <p class="panel-subtitle">Авторизация остаётся в Supabase Auth, а профиль пользователя хранится отдельно в таблице
-        приложения.</p>
+      <div class="brand">Hotel Scenarios</div>
+      <h2>Get your video script in minutes</h2>
+      <p class="panel-subtitle">Submit your hotel details, receive the finished script by email, or sign in to manage
+        your saved scripts in the dashboard.</p>
 
       <div id="message" class="message"></div>
 
       <div class="tabs">
-        <button id="loginTab" class="tab active" type="button">Вход</button>
-        <button id="registerTab" class="tab" type="button">Регистрация</button>
+        <button id="guestTab" class="tab active" type="button">Get Script</button>
+        <button id="loginTab" class="tab" type="button">Sign In</button>
+        <button id="registerTab" class="tab" type="button">Register</button>
       </div>
 
-      <form id="loginForm" class="form active">
+      <form id="guestForm" class="form active">
+        <div>
+          <label for="guestHotelUrl">Hotel website</label>
+          <input id="guestHotelUrl" type="url" placeholder="https://hotel.com" required>
+        </div>
+        <div>
+          <label for="guestBusinessGoal">Business goal</label>
+          <input id="guestBusinessGoal" type="text" placeholder="Increase direct bookings" required>
+        </div>
+        <div>
+          <label for="guestCity">City</label>
+          <input id="guestCity" type="text" placeholder="Dubai" required>
+        </div>
+        <div>
+          <label for="guestEmail">Email for delivery</label>
+          <input id="guestEmail" type="email" placeholder="you@example.com" required>
+        </div>
+        <div>
+          <label for="guestLanguage">Script language</label>
+          <select id="guestLanguage">
+            <option value="English">English</option>
+            <option value="Russian">Russian</option>
+            <option value="Spanish">Spanish</option>
+          </select>
+        </div>
+        <button class="submit" type="submit">Send me the script</button>
+      </form>
+
+      <form id="loginForm" class="form">
         <div>
           <label for="loginEmail">Email</label>
           <input id="loginEmail" type="email" autocomplete="email" required>
         </div>
         <div>
-          <label for="loginPassword">Пароль</label>
+          <label for="loginPassword">Password</label>
           <input id="loginPassword" type="password" autocomplete="current-password" required>
         </div>
-        <button class="submit" type="submit">Войти</button>
+        <button class="submit" type="submit">Sign In</button>
       </form>
 
       <form id="registerForm" class="form">
         <div class="row">
           <div>
-            <label for="firstName">Имя</label>
+            <label for="firstName">First name</label>
             <input id="firstName" type="text" autocomplete="given-name" required>
           </div>
           <div>
-            <label for="lastName">Фамилия</label>
+            <label for="lastName">Last name</label>
             <input id="lastName" type="text" autocomplete="family-name" required>
           </div>
         </div>
@@ -316,14 +470,14 @@
           <input id="registerEmail" type="email" autocomplete="email" required>
         </div>
         <div>
-          <label for="registerPassword">Пароль</label>
+          <label for="registerPassword">Password</label>
           <input id="registerPassword" type="password" autocomplete="new-password" minlength="6" required>
         </div>
-        <button class="submit" type="submit">Создать аккаунт</button>
+        <button class="submit" type="submit">Create account</button>
       </form>
 
-      <p class="hint">После входа откроется кабинет, где можно запускать генерацию сценариев и просматривать сохранённые
-        данные.</p>
+      <p class="hint">Guests receive scripts by email only. Registered users can also access their saved scripts in the
+        dashboard.</p>
     </section>
   </div>
 
@@ -332,8 +486,10 @@
     let supabaseClient = null;
 
     const messageEl = document.getElementById('message');
+    const guestTab = document.getElementById('guestTab');
     const loginTab = document.getElementById('loginTab');
     const registerTab = document.getElementById('registerTab');
+    const guestForm = document.getElementById('guestForm');
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
 
@@ -348,11 +504,15 @@
     }
 
     function setActiveTab(tab) {
+      const isGuest = tab === 'guest';
       const isLogin = tab === 'login';
+      const isRegister = tab === 'register';
+      guestTab.classList.toggle('active', isGuest);
       loginTab.classList.toggle('active', isLogin);
-      registerTab.classList.toggle('active', !isLogin);
+      registerTab.classList.toggle('active', isRegister);
+      guestForm.classList.toggle('active', isGuest);
       loginForm.classList.toggle('active', isLogin);
-      registerForm.classList.toggle('active', !isLogin);
+      registerForm.classList.toggle('active', isRegister);
       clearMessage();
     }
 
@@ -369,7 +529,7 @@
         return true;
       } catch (error) {
         console.error('[auth] Failed to initialize Supabase client:', error);
-        showMessage(error.message || 'Не удалось инициализировать Supabase.', 'error');
+        showMessage(error.message || 'Failed to initialize Supabase.', 'error');
         return false;
       }
     }
@@ -382,15 +542,56 @@
       }
     }
 
+    guestTab.addEventListener('click', () => setActiveTab('guest'));
     loginTab.addEventListener('click', () => setActiveTab('login'));
     registerTab.addEventListener('click', () => setActiveTab('register'));
+
+    guestForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearMessage();
+
+      const button = event.submitter;
+      button.disabled = true;
+
+      try {
+        const payload = {
+          hotel_website_url: document.getElementById('guestHotelUrl').value.trim(),
+          business_goal: document.getElementById('guestBusinessGoal').value.trim(),
+          city: document.getElementById('guestCity').value.trim(),
+          contact_email: document.getElementById('guestEmail').value.trim(),
+          language: document.getElementById('guestLanguage').value.trim() || 'English'
+        };
+
+        const response = await fetch('/api/public-generate-script', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to submit request.');
+        }
+
+        showMessage(result.message || 'Your request has been accepted. Please check your email soon.');
+        event.target.reset();
+        document.getElementById('guestLanguage').value = 'English';
+      } catch (error) {
+        console.error('[public] Guest generation failed:', error);
+        showMessage(error.message || 'Failed to submit request.', 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
 
     loginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       clearMessage();
 
       if (!supabaseClient) {
-        showMessage('Supabase клиент не инициализирован.', 'error');
+        showMessage('Supabase client is not initialized.', 'error');
         return;
       }
 
@@ -407,7 +608,7 @@
         window.location.href = '/dashboard.html';
       } catch (error) {
         console.error('[auth] Login failed:', error);
-        showMessage(error.message || 'Не удалось выполнить вход.', 'error');
+        showMessage(error.message || 'Failed to sign in.', 'error');
       } finally {
         button.disabled = false;
       }
@@ -418,7 +619,7 @@
       clearMessage();
 
       if (!supabaseClient) {
-        showMessage('Supabase клиент не инициализирован.', 'error');
+        showMessage('Supabase client is not initialized.', 'error');
         return;
       }
 
@@ -457,12 +658,12 @@
           }
         }
 
-        showMessage('Аккаунт создан. Подтверди email в письме от Supabase, затем выполни вход.');
+        showMessage('Account created. Confirm your email in the Supabase message, then sign in.');
         setActiveTab('login');
         document.getElementById('loginEmail').value = email;
       } catch (error) {
         console.error('[auth] Register failed:', error);
-        showMessage(error.message || 'Не удалось создать аккаунт.', 'error');
+        showMessage(error.message || 'Failed to create account.', 'error');
       } finally {
         button.disabled = false;
       }

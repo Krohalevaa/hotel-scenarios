@@ -4,6 +4,7 @@ const { publishToQueue } = require('./rabbitmq');
 const { requireAuth } = require('./auth');
 const db = require('./db');
 const logger = require('./logger');
+const config = require('./config');
 
 const router = express.Router();
 
@@ -94,6 +95,35 @@ router.post('/generate-script', requireAuth, async (req, res) => {
 
     processSingleHotel(payload).catch((error) => {
         logger.error(`[generate-script] Background processing failed for user=${payload.user_id}, hotelUrl=${payload.hotel_website_url}: ${error.message}`);
+        logger.error(error.stack);
+    });
+});
+
+router.post('/api/public-generate-script', async (req, res) => {
+    if (!config.GUEST_USER_ID) {
+        return res.status(500).json({ error: 'GUEST_USER_ID is not configured.' });
+    }
+
+    const payload = {
+        ...req.body,
+        user_id: config.GUEST_USER_ID,
+        contact_email: req.body.contact_email,
+        language: req.body.language || 'English'
+    };
+
+    if (!payload.hotel_website_url || !payload.business_goal || !payload.city || !payload.contact_email) {
+        return res.status(400).json({ error: 'hotel_website_url, business_goal, city, and contact_email are required.' });
+    }
+
+    logger.info(`[public-generate-script] Accepted guest request: guestUser=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'English'}`);
+
+    res.json({
+        status: 'success',
+        message: 'Request received. We will send the script to your email.'
+    });
+
+    processSingleHotel(payload).catch((error) => {
+        logger.error(`[public-generate-script] Background processing failed for guestUser=${payload.user_id}, hotelUrl=${payload.hotel_website_url}: ${error.message}`);
         logger.error(error.stack);
     });
 });

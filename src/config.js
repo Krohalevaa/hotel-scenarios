@@ -3,6 +3,8 @@ require('dotenv').config();
 module.exports = {
   PORT: process.env.PORT || 3000,
   SCRAPER_API_URL: process.env.SCRAPER_API_URL || 'https://kondratmeech.orangepebble-c36ec136.eastus2.azurecontainerapps.io/scrape',
+  GUEST_USER_ID: process.env.GUEST_USER_ID || '',
+  GUEST_USER_EMAIL: process.env.GUEST_USER_EMAIL || 'guest@hotel-scenarios.local',
 
   // RabbitMQ via HTTP Management API (no AMQP/TLS needed)
   RABBITMQ_HTTP_URL: process.env.RABBITMQ_HTTP_URL || 'https://rabbitmq-app.orangepebble-c36ec136.eastus2.azurecontainerapps.io',

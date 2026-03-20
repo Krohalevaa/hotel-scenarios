@@ -15,7 +15,8 @@ async function azureChat(systemMessage, userMessage, deployment) {
 
     const requestBody = {
         messages,
-        max_completion_tokens: 800
+        max_completion_tokens: 1200,
+        reasoning_effort: 'minimal'
     };
 
     logger.debug(`AI request prepared: deployment=${deployment}, url=${url}, apiVersion=${config.AZURE_OPENAI_API_VERSION}, hasApiKey=${Boolean(config.AZURE_OPENAI_API_KEY)}, systemLength=${systemMessage.length}, userLength=${userMessage.length}`);
@@ -35,8 +36,10 @@ async function azureChat(systemMessage, userMessage, deployment) {
                     timeout: 120000
                 }
             );
-            logger.debug(`AI request succeeded on attempt ${attempt + 1} for deployment=${deployment}`);
-            return response.data.choices[0].message.content;
+            const content = response.data?.choices?.[0]?.message?.content || '';
+            const finishReason = response.data?.choices?.[0]?.finish_reason || 'unknown';
+            logger.debug(`AI request succeeded on attempt ${attempt + 1} for deployment=${deployment}; finishReason=${finishReason}; contentLength=${content.length}`);
+            return content;
         } catch (error) {
             lastError = error;
             const responseStatus = error.response?.status || 'unknown';

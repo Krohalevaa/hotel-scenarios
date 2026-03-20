@@ -15,8 +15,7 @@ async function azureChat(systemMessage, userMessage, deployment) {
 
     const requestBody = {
         messages,
-        max_completion_tokens: 800,
-        temperature: 0.7
+        max_completion_tokens: 800
     };
 
     logger.debug(`AI request prepared: deployment=${deployment}, url=${url}, apiVersion=${config.AZURE_OPENAI_API_VERSION}, hasApiKey=${Boolean(config.AZURE_OPENAI_API_KEY)}, systemLength=${systemMessage.length}, userLength=${userMessage.length}`);

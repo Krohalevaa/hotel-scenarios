@@ -32,7 +32,7 @@ async function sendEmail(to, subject, text, retries = 3) {
             const isLastAttempt = i === retries - 1;
             logger.warn(`Email attempt ${i + 1} failed: ${error.message}`);
             if (isLastAttempt) {
-                logger.error(`Failed to send email to ${to} after ${retries} attempts.`);
+                throw new Error(`Failed to send email to ${to} after ${retries} attempts.`);
             } else {
                 await new Promise(resolve => setTimeout(resolve, 5000)); // 5s delay
             }

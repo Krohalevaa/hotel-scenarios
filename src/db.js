@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('./config');
+const logger = require('./logger');
 
 async function executeClickHouseQuery(query) {
     try {
@@ -9,9 +10,9 @@ async function executeClickHouseQuery(query) {
                 'Content-Type': 'text/plain'
             }
         });
-        console.log("Saved to ClickHouse successfully.");
+        logger.info("Saved to ClickHouse successfully.");
     } catch (error) {
-        console.error("ClickHouse error:", error.response?.data || error.message);
+        logger.error(`ClickHouse error: ${error.response?.data || error.message}`);
     }
 }
 

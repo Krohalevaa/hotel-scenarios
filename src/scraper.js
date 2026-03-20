@@ -143,6 +143,13 @@ function extractHotelInfo(data, context) {
         result.hotel_name = 'The Pierre, a Taj Hotel';
     }
 
+    // Task 7: Blacklist junk titles (Cloudflare, 403, etc.)
+    const JUNK_TITLES = ['Access Denied', 'Just a moment', 'DDoS-Guard', '403 Forbidden', 'Cloudflare', 'Checking your browser'];
+    if (JUNK_TITLES.some(j => result.hotel_name.includes(j))) {
+        logger.warn(`Junk title detected: "${result.hotel_name}". Clearing title to force AI inference.`);
+        result.hotel_name = '';
+    }
+
     return result;
 }
 

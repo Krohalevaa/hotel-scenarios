@@ -4,26 +4,39 @@ const logger = require('./logger');
 
 /**
  * Direct Azure OpenAI REST API call (no LangChain needed).
- * Endpoint: https://{instance}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version={version}
  */
 async function azureChat(systemMessage, userMessage, deployment) {
     const url = `https://${config.AZURE_OPENAI_API_INSTANCE_NAME}.openai.azure.com/openai/deployments/${deployment}/chat/completions?api-version=${config.AZURE_OPENAI_API_VERSION}`;
-
-    const body = {
-        messages: [
-            { role: 'system', content: systemMessage },
-            { role: 'user', content: userMessage }
-        ]
-    };
-
-    const response = await axios.post(url, body, {
-        headers: {
-            'api-key': config.AZURE_OPENAI_API_KEY,
-            'Content-Type': 'application/json'
+    
+    const messages = [
+        { role: 'system', content: systemMessage },
+        { role: 'user', content: userMessage }
+    ];
+    
+    // Task 12: Add retries and timeouts
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const response = await axios.post(url, {
+                messages: messages,
+                max_tokens: 800,
+                temperature: 0.7,
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api-key': config.AZURE_OPENAI_API_KEY,
+                },
+                timeout: 120000 // 2 minutes timeout
+            });
+            return response.data.choices[0].message.content;
+        } catch (error) {
+            lastError = error;
+            logger.warn(`AI attempt ${attempt + 1} failed: ${error.message}`);
+            // Wait before retry
+            if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
         }
-    });
-
-    return response.data.choices[0].message.content;
+    }
+    throw new Error(`AI Request failed after 3 attempts: ${lastError.message}`);
 }
 
 async function generateSchemaSQL(rawData) {

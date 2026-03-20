@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('./config');
+const logger = require('./logger');
 
 // RabbitMQ HTTP Management API — exactly as in the original n8n workflow
 const RABBITMQ_BASE = config.RABBITMQ_HTTP_URL;
@@ -23,11 +24,11 @@ async function declareQueue() {
                 'Content-Type': 'application/json'
             }
         });
-        console.log(`Queue "${QUEUE_NAME}" is ready.`);
+        logger.info(`Queue "${QUEUE_NAME}" is ready.`);
     } catch (err) {
         // 204 No Content = already exists — that's OK
         if (err.response?.status !== 204) {
-            console.error('Queue declare error:', err.response?.data || err.message);
+            logger.error(`Queue declare error: ${err.response?.data || err.message}`);
         }
     }
 }
@@ -55,12 +56,12 @@ async function publishToQueue(data) {
             }
         });
         if (response.data?.routed === false) {
-            console.warn('WARNING: Message was NOT routed to any queue! Check vhost/queue config.');
+            logger.warn('WARNING: Message was NOT routed to any queue! Check vhost/queue config.');
         } else {
-            console.log('Published to RabbitMQ:', data.hotel_name);
+            logger.info(`Published to RabbitMQ: ${data.hotel_name}`);
         }
     } catch (err) {
-        console.error('RabbitMQ publish error:', err.response?.data || err.message);
+        logger.error(`RabbitMQ publish error: ${err.response?.data || err.message}`);
         throw err;
     }
 }
@@ -83,7 +84,7 @@ async function getOneMessage() {
         if (!messages || messages.length === 0) return null;
         return JSON.parse(messages[0].payload);
     } catch (err) {
-        console.error('RabbitMQ get error:', err.response?.data || err.message);
+        logger.error(`RabbitMQ get error: ${err.response?.data || err.message}`);
         return null;
     }
 }
@@ -93,22 +94,24 @@ async function getOneMessage() {
  * Mirrors n8n node "Polling Interval (30s)"
  */
 function consumeFromQueue(callback, intervalMs = 30000) {
-    console.log(`Worker polling queue "${QUEUE_NAME}" every ${intervalMs / 1000}s via HTTP API`);
+    logger.info(`Worker polling queue "${QUEUE_NAME}" every ${intervalMs / 1000}s via HTTP API`);
 
     async function poll() {
         const ts = new Date().toISOString();
         try {
-            console.log(`[${ts}] Polling queue...`);
+            logger.info(`[${ts}] Polling queue...`);
             const data = await getOneMessage();
             if (data) {
-                console.log(`[${ts}] Got message for hotel:`, data.hotel_name);
+                logger.info(`[${ts}] Got message for hotel: ${data.hotel_name}`);
                 await callback(data);
+                // Task 10: Immediate next poll if message was found
+                setTimeout(poll, 100);
             } else {
-                console.log(`[${ts}] Queue is empty or no message returned.`);
+                logger.info(`[${ts}] Queue is empty or no message returned.`);
+                setTimeout(poll, intervalMs);
             }
         } catch (err) {
-            console.error(`[${ts}] Poll error:`, err.message);
-        } finally {
+            logger.error(`[${ts}] Poll error: ${err.message}`);
             setTimeout(poll, intervalMs);
         }
     }

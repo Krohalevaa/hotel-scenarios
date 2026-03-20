@@ -1,6 +1,7 @@
 const express = require('express');
 const { scrapeHotelWebsite, extractHotelInfo } = require('./scraper');
 const { publishToQueue } = require('./rabbitmq');
+const logger = require('./logger');
 
 const router = express.Router();
 
@@ -22,11 +23,11 @@ async function processSingleHotel(hotelRequest) {
 
     let hotelData;
     try {
-        console.log(`Processing entry: ${context.hotel_website_url}`);
+        logger.info(`Processing entry: ${context.hotel_website_url}`);
         const rawData = await scrapeHotelWebsite(context.hotel_website_url);
         hotelData = extractHotelInfo(rawData, context);
     } catch (e) {
-        console.error(`Scraping failed for ${context.hotel_website_url}, using fallback:`, e.message);
+        logger.error(`Scraping failed for ${context.hotel_website_url}, using fallback: ${e.message}`);
         // Fallback: Create minimal data so processing can continue
         const domain = new URL(context.hotel_website_url).hostname.replace('www.', '');
         hotelData = {
@@ -45,7 +46,7 @@ async function processSingleHotel(hotelRequest) {
     try {
         await publishToQueue(hotelData);
     } catch (e) {
-        console.error(`Error publishing to queue for ${context.hotel_website_url}:`, e.message);
+        logger.error(`Error publishing to queue for ${context.hotel_website_url}: ${e.message}`);
     }
 }
 
@@ -59,21 +60,38 @@ router.post('/generate-script', async (req, res) => {
     processSingleHotel(req.body);
 });
 
+// Task 11: Parallel bulk processing (Batch size 3)
 router.post('/api/bulk-generate-script', async (req, res) => {
-    const hotels = req.body;
-    if (!Array.isArray(hotels)) {
-        return res.status(400).json({ status: "error", message: "Expected an array of hotels." });
+    // Support both: a raw array  [ {...}, {...} ]
+    // and an object with key:  { hotels: [ {...}, {...} ] }
+    const hotels = Array.isArray(req.body) ? req.body : req.body?.hotels;
+    if (!hotels || !Array.isArray(hotels)) {
+        return res.status(400).json({ error: 'Expected an array of hotels.' });
     }
 
-    res.json({
-        status: "success",
-        message: `Bulk processing started for ${hotels.length} hotels. Please check your email.`
-    });
+    res.json({ message: `Started processing ${hotels.length} hotels in batches. Check logs for progress.` });
 
-    // Background process for multiple hotels
-    for (const hotel of hotels) {
-        await processSingleHotel(hotel);
-    }
+    // Background processing
+    const BATCH_SIZE = 3;
+    (async () => {
+        for (let i = 0; i < hotels.length; i += BATCH_SIZE) {
+            const batch = hotels.slice(i, i + BATCH_SIZE);
+            logger.info(`Processing Batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} hotels)...`);
+            
+            await Promise.allSettled(batch.map(async (hotel) => {
+                try {
+                    await processSingleHotel(hotel);
+                } catch (err) {
+                    logger.error(`Batch item failed: ${err.message}`);
+                }
+            }));
+            
+            // Short pause between batches to avoid overwhelming APIs
+            if (i + BATCH_SIZE < hotels.length) {
+                await new Promise(r => setTimeout(r, 5000));
+            }
+        }
+    })();
 });
 
 module.exports = router;

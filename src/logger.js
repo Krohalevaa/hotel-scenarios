@@ -3,6 +3,9 @@ const path = require('path');
 
 const logFile = path.join(__dirname, '../app.log');
 
+// Task 9: Use write stream for better performance (non-blocking)
+const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+
 function log(message, level = 'INFO') {
     const timestamp = new Date().toISOString();
     const formattedMessage = `[${timestamp}] [${level}] ${message}`;
@@ -10,12 +13,8 @@ function log(message, level = 'INFO') {
     // Log to terminal
     console.log(formattedMessage);
 
-    // Log to file
-    try {
-        fs.appendFileSync(logFile, formattedMessage + '\n');
-    } catch (err) {
-        console.error('Failed to write to log file:', err.message);
-    }
+    // Log to file (asynchronous)
+    logStream.write(formattedMessage + '\n');
 }
 
 module.exports = {

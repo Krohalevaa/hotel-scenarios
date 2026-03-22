@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: hotel-rabbitmq
+    ports:
+      - "5672:5672"   # Порт для работы приложения
+      - "15672:15672" # Веб-интерфейс (логин/пароль: guest/guest)
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hotel-scenarios-app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - rabbitmq
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672 # Заставляем приложение стучаться в соседний контейнер
+    restart: unless-stopped

@@ -697,6 +697,26 @@
             ];
         }
 
+        function getPreferredAttractions(item) {
+            const discoveredAttractions = Array.isArray(item.hotel_discovered_attractions)
+                ? item.hotel_discovered_attractions[0]
+                : item.hotel_discovered_attractions || null;
+
+            const selectedAttractions = Array.isArray(discoveredAttractions?.selected_attractions)
+                ? discoveredAttractions.selected_attractions.filter(Boolean)
+                : [];
+
+            if (selectedAttractions.length > 0) {
+                return selectedAttractions;
+            }
+
+            const fallbackAttractions = Array.isArray(item.hotel_attractions)
+                ? item.hotel_attractions.map((entry) => entry.attraction_name).filter(Boolean)
+                : [];
+
+            return fallbackAttractions;
+        }
+
         function openScriptModal(item) {
             const normalizedScript = normalizeScriptText(item.final_script);
             const hotelName = formatDisplayText(item.hotel_name, 'Script');
@@ -704,9 +724,7 @@
             const guestPreference = formatDisplayText(item.guest_preference);
             const hotelUrl = decodeText(item.hotel_url);
             const hasUrl = Boolean(hotelUrl);
-            const attractions = Array.isArray(item.hotel_attractions)
-                ? item.hotel_attractions.map((entry) => entry.attraction_name).filter(Boolean)
-                : [];
+            const attractions = getPreferredAttractions(item);
             const sourceData = Array.isArray(item.hotel_source_data)
                 ? item.hotel_source_data[0]
                 : item.hotel_source_data || null;

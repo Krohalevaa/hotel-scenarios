@@ -49,7 +49,7 @@ async function processSingleHotel(hotelRequest) {
 
     let hotelData;
     try {
-        logger.info(`Processing entry: ${context.hotel_website_url}`);
+        logger.info(`Получен сайт отеля: ${context.hotel_website_url}`);
         const rawData = await scrapeHotelWebsite(context.hotel_website_url);
         hotelData = extractHotelInfo(rawData, context);
         hotelData.user_id = context.user_id;
@@ -61,7 +61,7 @@ async function processSingleHotel(hotelRequest) {
         hotelData.country = context.country || hotelData.country || null;
         hotelData.hotel_website_url = context.hotel_website_url;
     } catch (e) {
-        logger.error(`Scraping failed for ${context.hotel_website_url}, using fallback: ${e.message}`);
+        logger.warn(`Не удалось прочитать сайт, продолжаем с минимальными данными: ${e.message}`);
         const domain = new URL(context.hotel_website_url).hostname.replace('www.', '');
         hotelData = {
             hotel_name: domain,
@@ -79,10 +79,8 @@ async function processSingleHotel(hotelRequest) {
         };
     }
 
-    const queueResult = await publishToQueue(hotelData);
-    if (queueResult?.fallbackQueued) {
-        logger.warn(`Queue fallback activated for ${context.hotel_website_url}. The job will be processed directly by the worker loop fallback path.`);
-    }
+    await publishToQueue(hotelData);
+    logger.info(`Запрос поставлен в обработку: ${context.hotel_website_url}`);
 }
 
 router.post('/generate-script', requireAuth, async (req, res) => {
@@ -92,7 +90,7 @@ router.post('/generate-script', requireAuth, async (req, res) => {
         contact_email: req.body.contact_email || req.user.email
     };
 
-    logger.info(`[generate-script] Accepted request: user=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'English'}`);
+    logger.info(`Новый запрос пользователя: ${payload.hotel_website_url}`);
 
     res.json({
         status: 'success',
@@ -100,8 +98,7 @@ router.post('/generate-script', requireAuth, async (req, res) => {
     });
 
     processSingleHotel(payload).catch((error) => {
-        logger.error(`[generate-script] Background processing failed for user=${payload.user_id}, hotelUrl=${payload.hotel_website_url}: ${error.message}`);
-        logger.error(error.stack);
+        logger.error(`Ошибка фоновой обработки: ${error.message}`);
     });
 });
 
@@ -128,12 +125,12 @@ router.post('/api/public-generate-script', async (req, res) => {
             email: guestEmail
         });
         guestUserId = guestProfile.user_id;
-        logger.warn(`[public-generate-script] GUEST_USER_ID is not configured. Using fallback guest profile ${guestUserId} (${guestEmail}).`);
+        logger.warn(`Гостевой профиль создан автоматически: ${guestEmail}`);
     }
 
     payload.user_id = guestUserId;
 
-    logger.info(`[public-generate-script] Accepted guest request: guestUser=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, country=${payload.country || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'English'}`);
+    logger.info(`Новый гостевой запрос: ${payload.hotel_website_url}`);
 
     res.json({
         status: 'success',
@@ -141,8 +138,7 @@ router.post('/api/public-generate-script', async (req, res) => {
     });
 
     processSingleHotel(payload).catch((error) => {
-        logger.error(`[public-generate-script] Background processing failed for guestUser=${payload.user_id}, hotelUrl=${payload.hotel_website_url}: ${error.message}`);
-        logger.error(error.stack);
+        logger.error(`Ошибка фоновой обработки гостевого запроса: ${error.message}`);
     });
 });
 
@@ -152,7 +148,7 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
         return res.status(400).json({ error: 'Expected an array of hotels.' });
     }
 
-    logger.info(`[bulk-generate-script] Accepted batch: user=${req.user.id}, count=${hotels.length}`);
+    logger.info(`Получен пакет запросов: ${hotels.length}`);
 
     res.json({ message: `Started processing ${hotels.length} hotels in batches. Check logs for progress.` });
 
@@ -160,7 +156,7 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
     (async () => {
         for (let i = 0; i < hotels.length; i += BATCH_SIZE) {
             const batch = hotels.slice(i, i + BATCH_SIZE);
-            logger.info(`Processing Batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} hotels)...`);
+            logger.info(`Обрабатываем пакет ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} отелей`);
 
             await Promise.allSettled(
                 batch.map(async (hotel) => {
@@ -171,7 +167,7 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
                             contact_email: hotel.contact_email || req.user.email
                         });
                     } catch (err) {
-                        logger.error(`Batch item failed: ${err.message}`);
+                        logger.error(`Ошибка в одном из отелей пакета: ${err.message}`);
                     }
                 })
             );

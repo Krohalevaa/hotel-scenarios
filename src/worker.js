@@ -23,13 +23,12 @@ function collectKeyFeatures(hotelData) {
 
 async function processHotelData(hotelData) {
     const hotelLogName = hotelData.hotel_name || hotelData.hotel_website_url;
-    logger.info(`=== Starting processing for hotel: "${hotelLogName}" ===`);
-    logger.info(`[worker] Incoming job payload: user=${hotelData?.user_id || 'n/a'}, hotelUrl=${hotelData?.hotel_website_url || 'n/a'}, city=${hotelData?.city || 'n/a'}, email=${hotelData?.contact_email || 'n/a'}, hasName=${Boolean(hotelData?.hotel_name)}`);
+    logger.info(`Новый запрос: ${hotelLogName}`);
 
     let scriptRecord = null;
 
     try {
-        logger.info(`[worker] About to create initial DB record for hotel="${hotelLogName}"`);
+        logger.info('Шаг 1/6: создаём сценарий');
         scriptRecord = await db.saveScript({
             user_id: hotelData.user_id,
             contact_email: hotelData.contact_email,
@@ -45,9 +44,8 @@ async function processHotelData(hotelData) {
         });
 
         const scenarioId = scriptRecord.id;
-        logger.info(`[worker] Initial DB record created: scenarioId=${scenarioId}, status=${scriptRecord.status}`);
-
-        logger.info('Step 1: Starting Geocoding & Name Normalization...');
+        logger.info(`Сценарий создан: ${scenarioId}`);
+        logger.info('Шаг 2/6: ищем координаты отеля');
 
         const osmPrediction = await ai.predictOsmHotelData(
             hotelData.hotel_name,
@@ -56,7 +54,7 @@ async function processHotelData(hotelData) {
         );
 
         const canonicalName = osmPrediction.osm_target_name || hotelData.hotel_name || 'Hotel';
-        logger.info(`Canonical Hotel Name set: "${hotelLogName}" -> "${canonicalName}"`);
+        logger.info(`Подтвердили название: ${canonicalName}`);
 
         hotelData.hotel_name = canonicalName;
 
@@ -88,21 +86,20 @@ async function processHotelData(hotelData) {
         hotelData.country = hotelData.country || null;
         hotelData._geo_debug = geoResult._geo_debug_name;
 
-        logger.info(`Geocoding finished. Result: ${hotelData._geo_debug} [${hotelData.geo_lat}, ${hotelData.geo_lon}]`);
+        logger.info(`Координаты найдены: [${hotelData.geo_lat}, ${hotelData.geo_lon}]`);
 
         let allNearbyPlaces = [];
         let recommendedPlaces = [];
         let selectedCategories = [];
 
         if (hotelData.geo_lat && hotelData.geo_lon) {
-            logger.info(`Step 2: Searching for nearby public places within ${DEFAULT_RADIUS_METERS} meters...`);
+            logger.info('Шаг 3/6: ищем достопримечательности рядом');
             await new Promise((resolve) => setTimeout(resolve, 3000));
             allNearbyPlaces = await geo.searchPublicPlaces(hotelData.geo_lat, hotelData.geo_lon, {
                 radius: DEFAULT_RADIUS_METERS
             });
-            logger.info(`Found ${allNearbyPlaces.length} public places.`);
-
-            logger.info('Saving discovered attractions to Supabase...');
+            logger.info(`Найдено мест рядом: ${allNearbyPlaces.length}`);
+            logger.info('Сохраняем найденные места');
             const initialDiscoveredAttractionsRecord = await db.saveDiscoveredAttractions(
                 scenarioId,
                 hotelData.hotel_name,
@@ -113,7 +110,7 @@ async function processHotelData(hotelData) {
 
             hotelData.discovered_attractions = initialDiscoveredAttractionsRecord ? [initialDiscoveredAttractionsRecord] : [];
 
-            logger.info('Step 3: AI agent is selecting preference-matching places...');
+            logger.info('Шаг 4/6: отбираем подходящие места');
             const placeSelection = await ai.selectRelevantPlaces(hotelData);
             selectedCategories = placeSelection.selectedCategories || [];
             recommendedPlaces = placeSelection.recommendedPlaces || [];
@@ -167,7 +164,7 @@ async function processHotelData(hotelData) {
             selected_place_categories: selectedCategories
         });
 
-        logger.info('Step 4: Generating video script via AI...');
+        logger.info('Шаг 5/6: собираем финальный сценарий');
 
         hotelData.location = hotelData.location || hotelData.address || hotelData.city || 'Unknown';
         hotelData.description = hotelData.description || `A beautiful hotel in ${hotelData.location}`;
@@ -177,51 +174,49 @@ async function processHotelData(hotelData) {
             scriptContent = await ai.generateScript(hotelData);
             logger.debug(`AI script result received for scenario ${scenarioId}: hasContent=${Boolean(scriptContent)} length=${scriptContent?.length || 0}`);
         } catch (error) {
-            logger.warn(`AI script generation failed for scenario ${scenarioId}, using fallback script: ${error.message}`);
+            logger.warn(`Не удалось собрать сценарий через AI, используем запасной вариант: ${error.message}`);
             scriptContent = ai.buildFallbackScript(hotelData);
             logger.debug(`Fallback script created from catch block for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
         }
 
         if (!scriptContent) {
-            logger.warn(`AI returned empty script for ${scenarioId}, using fallback script.`);
+            logger.warn('AI вернул пустой сценарий, используем запасной вариант');
             scriptContent = ai.buildFallbackScript(hotelData);
             logger.debug(`Fallback script created after empty AI response for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
         }
 
-        logger.info(`Persisting completed scenario ${scenarioId}: finalLength=${scriptContent?.length || 0}, emailTarget=${hotelData.contact_email || config.GUEST_USER_EMAIL || 'akrohaleva67@gmail.com'}`);
+        logger.info('Шаг 6/6: сохраняем результат и отправляем email');
         await db.updateScriptStatus(scenarioId, 'completed', scriptContent);
-        logger.info(`[worker] Final DB update completed: scenarioId=${scenarioId}, finalScriptLength=${scriptContent?.length || 0}`);
-        logger.info('Script generated successfully.');
+        logger.info(`Сценарий готов: ${scenarioId}`);
 
         try {
             const targetEmail = hotelData.contact_email || config.GUEST_USER_EMAIL || 'akrohaleva67@gmail.com';
-            logger.info(`Sending email to ${targetEmail}...`);
+            logger.info(`Отправляем сценарий на ${targetEmail}`);
             await email.sendEmail(targetEmail, `Video Script: ${hotelData.hotel_name}`, scriptContent);
-            logger.info('Email sent successfully.');
+            logger.info('Email отправлен');
         } catch (emailErr) {
             logger.error(`Email Step Failed: ${emailErr.message}`);
         }
 
-        logger.info(`=== Successfully finished processing hotel: "${hotelData.hotel_name}" ===`);
+        logger.info(`Готово: ${hotelData.hotel_name}`);
     } catch (err) {
-        logger.error(`[worker] Processing failed before completion for hotel="${hotelLogName}", scenarioId=${scriptRecord?.id || 'not-created'}: ${err.message}`);
+        logger.error(`Ошибка обработки ${hotelLogName}: ${err.message}`);
         if (scriptRecord?.id) {
             try {
                 await db.updateScriptStatus(scriptRecord.id, 'failed');
             } catch (statusErr) {
-                logger.error(`Failed to update script status: ${statusErr.message}`);
+                logger.error(`Не удалось обновить статус сценария: ${statusErr.message}`);
             }
         }
 
-        logger.error(`Critical error processing hotel "${hotelLogName}": ${err.message}`);
-        logger.error(err.stack);
+        logger.error(`Критическая ошибка: ${err.message}`);
     }
 }
 
 function startWorker() {
-    logger.info('Initializing Worker...');
+    logger.info('Воркер запущен');
     consumeFromQueue(processHotelData);
-    logger.info('Worker started and listening for RabbitMQ messages.');
+    logger.info('Ожидаем новые запросы');
 }
 
 module.exports = { startWorker };

@@ -8,6 +8,7 @@ const VHOST = config.RABBITMQ_VHOST;
 const QUEUE_NAME = 'hotel_data_queue';
 const EXCHANGE = 'amq.default';
 const pendingFallbackJobs = [];
+const DIRECT_PROCESSING_REASON = 'rabbitmq_http_api_unreliable';
 
 function getAuthHeader() {
     return `Basic ${config.RABBITMQ_AUTH_BASE64}`;
@@ -24,7 +25,7 @@ function enqueueFallbackJob(data, reason) {
         reason,
         queuedAt: new Date().toISOString()
     });
-    logger.warn(`RabbitMQ fallback job queued for hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}" reason="${reason}" pending=${pendingFallbackJobs.length}`);
+    logger.debug(`Запрос добавлен в очередь обработки: ${data?.hotel_name || data?.hotel_website_url || 'unknown'}`);
 }
 
 function takeFallbackJob() {
@@ -44,13 +45,13 @@ async function declareQueue() {
             },
             timeout: 15000
         });
-        logger.info(`Queue "${QUEUE_NAME}" is ready. vhost=${VHOST}`);
+        logger.debug('Очередь обработки готова');
     } catch (err) {
         if (err.response?.status !== 204) {
             logger.error(`Queue declare error: ${stringifyErrorPayload(err.response?.data || err.message)}`);
             throw err;
         }
-        logger.info(`Queue "${QUEUE_NAME}" already exists. vhost=${VHOST}`);
+        logger.debug('Очередь обработки уже существует');
     }
 }
 
@@ -59,20 +60,21 @@ async function declareQueue() {
  * Mirrors n8n node "RabbitMQ: Publish"
  */
 async function publishToQueue(data) {
-    logger.info(`publishToQueue start: hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}", user=${data?.user_id || 'n/a'}, hasEmail=${Boolean(data?.contact_email)}, hasGoal=${Boolean(data?.business_goal)}, hasPreference=${Boolean(data?.guest_preference)}, city=${data?.city || 'n/a'}`);
-    await declareQueue();
-
-    const url = `${RABBITMQ_BASE}/api/exchanges/${encodeURIComponent(VHOST)}/${EXCHANGE}/publish`;
-    const body = {
-        properties: { delivery_mode: 2 },
-        routing_key: QUEUE_NAME,
-        payload: JSON.stringify(data),
-        payload_encoding: 'string'
-    };
-
-    logger.info(`Publishing to RabbitMQ: hotel="${data?.hotel_name || data?.hotel_website_url}", vhost=${VHOST}, queue=${QUEUE_NAME}, exchange=${EXCHANGE}`);
+    logger.info(`Передаём запрос в обработку: ${data?.hotel_name || data?.hotel_website_url || 'unknown'}`);
 
     try {
+        await declareQueue();
+
+        const url = `${RABBITMQ_BASE}/api/exchanges/${encodeURIComponent(VHOST)}/${EXCHANGE}/publish`;
+        const body = {
+            properties: { delivery_mode: 2 },
+            routing_key: QUEUE_NAME,
+            payload: JSON.stringify(data),
+            payload_encoding: 'string'
+        };
+
+        logger.debug('Публикуем запрос в очередь');
+
         const response = await axios.post(url, body, {
             headers: {
                 Authorization: getAuthHeader(),
@@ -81,24 +83,23 @@ async function publishToQueue(data) {
             timeout: 15000
         });
 
-        logger.info(`RabbitMQ publish response: status=${response.status}, routed=${response.data?.routed}, vhost=${VHOST}, queue=${QUEUE_NAME}`);
-        logger.debug(`RabbitMQ publish payload snapshot: hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}", payloadBytes=${Buffer.byteLength(body.payload, 'utf8')}, authConfigured=${Boolean(config.RABBITMQ_AUTH_BASE64)}`);
+        logger.debug(`Запрос принят очередью: status=${response.status}, routed=${response.data?.routed}`);
 
         if (response.data?.routed !== true) {
-            const reason = `publish_not_routed:${stringifyErrorPayload(response.data)}`;
-            enqueueFallbackJob(data, reason);
             throw new Error(`RabbitMQ publish was accepted but not routed. Response: ${stringifyErrorPayload(response.data)}`);
         }
 
-        logger.info(`Published to RabbitMQ: ${data.hotel_name || data.hotel_website_url || 'unknown'}`);
+        logger.warn(`RabbitMQ publish succeeded, но для надёжности запускаем локальную обработку без ожидания чтения из очереди: ${data.hotel_name || data.hotel_website_url || 'unknown'}`);
+        enqueueFallbackJob(data, DIRECT_PROCESSING_REASON);
+
         return {
             queued: true,
-            fallbackQueued: false
+            fallbackQueued: true
         };
     } catch (err) {
         const reason = `publish_error:${stringifyErrorPayload(err.response?.data || err.message)}`;
         enqueueFallbackJob(data, reason);
-        logger.error(`RabbitMQ publish error: ${stringifyErrorPayload(err.response?.data || err.message)}`);
+        logger.warn(`Не удалось надёжно использовать RabbitMQ, обработаем напрямую: ${stringifyErrorPayload(err.response?.data || err.message)}`);
         return {
             queued: false,
             fallbackQueued: true,
@@ -141,16 +142,15 @@ async function getOneMessage() {
 
             const payload = messages[0]?.payload;
             if (!payload) {
-                logger.warn('RabbitMQ returned a message without payload.');
+                logger.warn('Получен пустой запрос из очереди');
                 return null;
             }
 
             const parsed = JSON.parse(payload);
-            logger.info(`RabbitMQ delivered message for hotel="${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}"`);
-            logger.debug(`RabbitMQ delivered payload fields: keys=${Object.keys(parsed || {}).sort().join(',')}, hasUser=${Boolean(parsed?.user_id)}, hasEmail=${Boolean(parsed?.contact_email)}, hasGoal=${Boolean(parsed?.business_goal)}, hasCity=${Boolean(parsed?.city)}`);
+            logger.debug(`Получен запрос на обработку: ${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}`);
             return parsed;
         } catch (err) {
-            logger.error(`RabbitMQ get error on attempt ${attempt + 1}: ${stringifyErrorPayload(err.response?.data || err.message)}`);
+            logger.debug(`Ошибка чтения очереди, повторим позже: ${stringifyErrorPayload(err.response?.data || err.message)}`);
         }
     }
 
@@ -162,34 +162,29 @@ async function getOneMessage() {
  * Mirrors n8n node "Polling Interval (30s)"
  */
 function consumeFromQueue(callback, intervalMs = 30000) {
-    logger.info(`Worker polling queue "${QUEUE_NAME}" every ${intervalMs / 1000}s via HTTP API`);
-    logger.info(`RabbitMQ consumer configuration: base=${RABBITMQ_BASE}, vhost=${VHOST}, queue=${QUEUE_NAME}, authConfigured=${Boolean(config.RABBITMQ_AUTH_BASE64)}`);
+    logger.debug(`Проверяем новые запросы каждые ${intervalMs / 1000} сек`);
 
     async function poll() {
         const ts = new Date().toISOString();
         try {
-            logger.info(`[${ts}] Polling queue...`);
-            logger.debug(`[${ts}] Poll pre-state: pendingFallback=${pendingFallbackJobs.length}`);
+            logger.debug(`[${ts}] Проверяем очередь`);
             const data = await getOneMessage();
             const fallbackJob = !data ? takeFallbackJob() : null;
             const job = data || fallbackJob?.data || null;
-            logger.debug(`[${ts}] Poll result: rabbitMessage=${Boolean(data)}, fallbackJob=${Boolean(fallbackJob)}, pendingFallback=${pendingFallbackJobs.length}, jobHotel="${job?.hotel_name || job?.hotel_website_url || 'n/a'}"`);
+            const source = data ? 'rabbitmq' : (fallbackJob ? `fallback:${fallbackJob.reason}` : 'none');
+            logger.debug(`[${ts}] Результат проверки: job=${Boolean(job)}, source=${source}`);
 
             if (job) {
-                if (fallbackJob) {
-                    logger.warn(`[${ts}] Processing fallback job directly for hotel="${job.hotel_name || job.hotel_website_url}" reason="${fallbackJob.reason}" queuedAt=${fallbackJob.queuedAt}`);
-                } else {
-                    logger.info(`[${ts}] Got message for hotel: ${job.hotel_name}`);
-                }
+                logger.debug(`[${ts}] Начинаем обработку: ${job.hotel_name || job.hotel_website_url}, source=${source}`);
 
                 await callback(job);
                 setTimeout(poll, 100);
             } else {
-                logger.info(`[${ts}] Queue is empty or no message returned.`);
+                logger.debug(`[${ts}] Новых запросов нет`);
                 setTimeout(poll, intervalMs);
             }
         } catch (err) {
-            logger.error(`[${ts}] Poll error: ${err.message}`);
+            logger.warn(`[${ts}] Не удалось проверить очередь: ${err.message}`);
             setTimeout(poll, intervalMs);
         }
     }

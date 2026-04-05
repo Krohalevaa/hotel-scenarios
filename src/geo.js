@@ -51,6 +51,43 @@ function saveCityCache() {
 loadCityCache();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const publicPlacesCache = new Map();
+const PUBLIC_PLACES_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+
+function buildPublicPlacesCacheKey(lat, lon, options = {}) {
+    const radius = Number(options.radius || DEFAULT_RADIUS_METERS);
+    const categories = Array.isArray(options.categories) && options.categories.length
+        ? options.categories.filter((category) => PLACE_CATEGORY_DEFINITIONS[category]).sort()
+        : getAllCategoryKeys().sort();
+
+    return JSON.stringify({
+        lat: Number(lat).toFixed(4),
+        lon: Number(lon).toFixed(4),
+        radius,
+        categories
+    });
+}
+
+function getCachedPublicPlaces(cacheKey) {
+    const cached = publicPlacesCache.get(cacheKey);
+    if (!cached) {
+        return null;
+    }
+
+    if (Date.now() - cached.createdAt > PUBLIC_PLACES_CACHE_TTL_MS) {
+        publicPlacesCache.delete(cacheKey);
+        return null;
+    }
+
+    return cached.data;
+}
+
+function setCachedPublicPlaces(cacheKey, data) {
+    publicPlacesCache.set(cacheKey, {
+        createdAt: Date.now(),
+        data
+    });
+}
 
 async function fetchWithRetry(requestFn, maxRetries = 3) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -105,7 +142,6 @@ async function getCityCoordinates(city) {
 
     logger.info(`Geocoding City: "${city}"...`);
     try {
-        await sleep(1500);
         const response = await fetchWithRetry(() => geoAxios.get('https://nominatim.openstreetmap.org/search', {
             params: { city, format: 'json', limit: 1 },
             timeout: 7000
@@ -158,7 +194,6 @@ async function searchHotelInRadius(name, cityLat, cityLon, radius = 20000, websi
 
     for (let q = 0; q < queries.length; q++) {
         try {
-            await sleep(1500);
             logger.debug(`Executing Overpass Query Layer ${q + 1}...`);
             const response = await fetchWithRetry(() => axios.post('https://overpass-api.de/api/interpreter', queries[q], {
                 headers: { 'Content-Type': 'text/plain' },
@@ -187,7 +222,6 @@ async function searchHotelInRadius(name, cityLat, cityLon, radius = 20000, websi
 
 async function nominatimSearch(query, city) {
     try {
-        await sleep(1500);
         const resp = await fetchWithRetry(() => geoAxios.get('https://nominatim.openstreetmap.org/search', {
             params: { q: `${query}, ${city}`, format: 'json', limit: 5 },
             timeout: 8000
@@ -240,7 +274,6 @@ async function getGeoCoordinates(hotelName, city, hotelWebsite = '', osmPredicti
 
     for (const strategy of strategies) {
         try {
-            await sleep(2000);
             logger.debug(`Executing geocoding strategy: ${strategy.name}`);
             const result = await strategy.fn();
             if (result && result.lat && result.lon) {
@@ -407,6 +440,13 @@ async function searchPublicPlaces(lat, lon, options = {}) {
         ? options.categories.filter((category) => PLACE_CATEGORY_DEFINITIONS[category])
         : getAllCategoryKeys();
     const chunkSize = Number(options.chunkSize || 3);
+    const cacheKey = buildPublicPlacesCacheKey(lat, lon, { radius, categories });
+    const cachedPlaces = getCachedPublicPlaces(cacheKey);
+
+    if (cachedPlaces) {
+        logger.info(`Using cached public places @ [${lat}, ${lon}] within ${radius}m for categories: ${categories.join(', ')}.`);
+        return cachedPlaces;
+    }
 
     logger.info(`Searching public places @ [${lat}, ${lon}] within ${radius}m for categories: ${categories.join(', ')}...`);
 
@@ -464,6 +504,7 @@ async function searchPublicPlaces(lat, lon, options = {}) {
     }
 
     const dedupedPlaces = dedupePlaces(collectedPlaces);
+    setCachedPublicPlaces(cacheKey, dedupedPlaces);
     logger.info(`Found ${dedupedPlaces.length} public places in radius ${radius}m after merge.`);
     return dedupedPlaces;
 }

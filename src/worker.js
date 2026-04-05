@@ -94,21 +94,28 @@ async function processHotelData(hotelData) {
 
         if (hotelData.geo_lat && hotelData.geo_lon) {
             logger.info('Step 3/6: searching nearby attractions');
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            allNearbyPlaces = await geo.searchPublicPlaces(hotelData.geo_lat, hotelData.geo_lon, {
-                radius: DEFAULT_RADIUS_METERS
-            });
-            logger.info(`Nearby places found: ${allNearbyPlaces.length}`);
-            logger.info('Saving discovered places');
-            const initialDiscoveredAttractionsRecord = await db.saveDiscoveredAttractions(
-                scenarioId,
-                hotelData.hotel_name,
-                hotelData.city,
-                hotelData.country || null,
-                allNearbyPlaces
-            );
 
-            hotelData.discovered_attractions = initialDiscoveredAttractionsRecord ? [initialDiscoveredAttractionsRecord] : [];
+            const preferredCategories = selectedCategories.length ? selectedCategories : [];
+            const shortlistCategories = preferredCategories.length ? preferredCategories : null;
+
+            allNearbyPlaces = await geo.searchPublicPlaces(hotelData.geo_lat, hotelData.geo_lon, {
+                radius: DEFAULT_RADIUS_METERS,
+                categories: shortlistCategories || undefined,
+                chunkSize: shortlistCategories ? Math.min(shortlistCategories.length, 2) : 3
+            });
+
+            if (shortlistCategories?.length && allNearbyPlaces.length === 0) {
+                logger.warn('Preferred-category shortlist returned no places, falling back to full category search');
+                allNearbyPlaces = await geo.searchPublicPlaces(hotelData.geo_lat, hotelData.geo_lon, {
+                    radius: DEFAULT_RADIUS_METERS
+                });
+            }
+
+            logger.info(`Nearby places found: ${allNearbyPlaces.length}`);
+
+            hotelData.discovered_attractions = [{
+                recommended_places: allNearbyPlaces
+            }];
 
             logger.info('Step 4/6: selecting relevant places');
             const placeSelection = await ai.selectRelevantPlaces(hotelData);
@@ -127,7 +134,6 @@ async function processHotelData(hotelData) {
             );
 
             hotelData.discovered_attractions = discoveredAttractionsRecord ? [discoveredAttractionsRecord] : [];
-
             hotelData.selected_place_categories = selectedCategories;
             hotelData.recommended_places = recommendedPlaces;
             hotelData.nearby_attractions = recommendedPlaces.map((item) => item.name || item.attraction_name).filter(Boolean);

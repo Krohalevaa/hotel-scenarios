@@ -12,8 +12,9 @@ Hotel Scenarios automates the full pipeline required to turn a hotel website int
 2. Scrape and extract hotel information from the provided website.
 3. Queue the job for background processing with RabbitMQ.
 4. Resolve hotel coordinates and discover nearby public places.
-5. Use AI to select the most relevant attractions.
-6. Generate a final hotel-focused script in the requested language.
+5. Narrow attraction discovery to 2–3 best-fit categories based on guest preference, with fallback to all categories when needed.
+6. Use AI to select the most relevant attractions.
+7. Generate a final hotel-focused script in the requested language.
 7. Save the scenario and related source data in Supabase.
 8. Send the completed script to the target email address.
 
@@ -47,9 +48,10 @@ The application is organized as a single Node.js service with an internal worker
 3. The hotel request is scraped and normalized.
 4. The job is published to RabbitMQ.
 5. The worker consumes the job and creates a scenario record.
-6. The worker resolves coordinates and searches for nearby places.
-7. AI selects the most relevant places and generates the final script.
-8. The result is saved in Supabase and emailed to the requester.
+6. The worker resolves coordinates and first searches nearby places using 2–3 best-fit categories inferred from guest preference.
+7. If no places are found, the worker falls back to a full-category search.
+8. AI selects the most relevant places and generates the final script.
+9. The result is saved in Supabase and emailed to the requester.
 
 ## Project Structure
 
@@ -185,10 +187,11 @@ The background worker in **`src/worker.js`** follows a structured six-step flow:
 
 1. Create a scenario record.
 2. Predict and resolve hotel coordinates.
-3. Search for nearby attractions.
-4. Select relevant places based on guest preferences.
-5. Generate the final script with AI or a structured fallback.
-6. Save the result and send it by email.
+3. Search for nearby attractions using 2–3 best-fit categories derived from guest preferences.
+4. Fall back to all attraction categories if the narrowed search returns nothing.
+5. Select relevant places and final categories with AI.
+6. Generate the final script with AI or a structured fallback.
+7. Save the result and send it by email.
 
 This design keeps the HTTP layer responsive while long-running enrichment and generation tasks execute asynchronously.
 

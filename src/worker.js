@@ -90,13 +90,13 @@ async function processHotelData(hotelData) {
 
         let allNearbyPlaces = [];
         let recommendedPlaces = [];
-        let selectedCategories = parseGuestPreference(hotelData.guest_preference);
+        let selectedCategories = parseGuestPreference(hotelData.guest_preference).slice(0, 3);
 
         if (hotelData.geo_lat && hotelData.geo_lon) {
             logger.info('Step 3/6: searching nearby attractions');
 
             const preferredCategories = selectedCategories.length ? selectedCategories : [];
-            const shortlistCategories = preferredCategories.length ? preferredCategories : null;
+            const shortlistCategories = preferredCategories.length ? preferredCategories.slice(0, 3) : null;
 
             allNearbyPlaces = await geo.searchPublicPlaces(hotelData.geo_lat, hotelData.geo_lon, {
                 radius: DEFAULT_RADIUS_METERS,
@@ -113,6 +113,11 @@ async function processHotelData(hotelData) {
 
             logger.info(`Nearby places found: ${allNearbyPlaces.length}`);
 
+            const availablePlaceCategories = [...new Set(
+                allNearbyPlaces.flatMap((place) => Array.isArray(place.categories) ? place.categories : [place.category]).filter(Boolean)
+            )];
+
+            hotelData.available_place_categories = availablePlaceCategories;
             hotelData.discovered_attractions = [{
                 recommended_places: allNearbyPlaces
             }];
@@ -120,7 +125,7 @@ async function processHotelData(hotelData) {
             logger.info('Step 4/6: selecting relevant places');
             const placeSelection = await ai.selectRelevantPlaces(hotelData);
             selectedCategories = placeSelection.selectedCategories?.length
-                ? placeSelection.selectedCategories
+                ? placeSelection.selectedCategories.slice(0, 3)
                 : selectedCategories;
             recommendedPlaces = placeSelection.recommendedPlaces || [];
 

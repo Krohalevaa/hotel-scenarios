@@ -19,18 +19,18 @@ function normalizeAttraction(attraction) {
     if (typeof attraction === 'string') {
         return {
             attraction_name: attraction,
-            category: 'entertainment',
-            categories: ['entertainment']
+            category: 'culture_history',
+            categories: ['culture_history']
         };
     }
 
     const categories = Array.isArray(attraction?.categories) && attraction.categories.length
         ? attraction.categories
-        : [attraction?.category || 'entertainment'];
+        : [attraction?.category || 'culture_history'];
 
     return {
         attraction_name: attraction?.name || attraction?.attraction_name || 'Unknown attraction',
-        category: attraction?.category || categories[0] || 'entertainment',
+        category: attraction?.category || categories[0] || 'culture_history',
         categories
     };
 }

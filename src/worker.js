@@ -177,14 +177,14 @@ async function processHotelData(hotelData) {
             logger.debug(`AI script result received for scenario ${scenarioId}: hasContent=${Boolean(scriptContent)} length=${scriptContent?.length || 0}`);
         } catch (error) {
             logger.warn(`Failed to build script with AI, using fallback instead: ${error.message}`);
-            scriptContent = ai.buildFallbackScript(hotelData);
-            logger.debug(`Fallback script created from catch block for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
+            scriptContent = ai.buildStructuredFallbackScript(hotelData);
+            logger.debug(`Structured fallback script created from catch block for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
         }
 
         if (!scriptContent) {
             logger.warn('AI returned an empty script, using fallback instead');
-            scriptContent = ai.buildFallbackScript(hotelData);
-            logger.debug(`Fallback script created after empty AI response for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
+            scriptContent = ai.buildStructuredFallbackScript(hotelData);
+            logger.debug(`Structured fallback script created after empty AI response for scenario ${scenarioId}: length=${scriptContent?.length || 0}`);
         }
 
         logger.info('Step 6/6: saving result and sending email');

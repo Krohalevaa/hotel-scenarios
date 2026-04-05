@@ -89,12 +89,11 @@ async function publishToQueue(data) {
             throw new Error(`RabbitMQ publish was accepted but not routed. Response: ${stringifyErrorPayload(response.data)}`);
         }
 
-        logger.warn(`RabbitMQ publish succeeded, but for reliability we are also starting local processing without waiting for queue consumption: ${data.hotel_name || data.hotel_website_url || 'unknown'}`);
-        enqueueFallbackJob(data, DIRECT_PROCESSING_REASON);
+        logger.info(`RabbitMQ publish succeeded: ${data.hotel_name || data.hotel_website_url || 'unknown'}`);
 
         return {
             queued: true,
-            fallbackQueued: true
+            fallbackQueued: false
         };
     } catch (err) {
         const reason = `publish_error:${stringifyErrorPayload(err.response?.data || err.message)}`;

@@ -98,16 +98,133 @@ ${JSON.stringify(places, null, 2)}`;
     }
 }
 
+function formatList(items, fallback = 'not specified') {
+    const normalized = normalizeList(items);
+    return normalized.length ? normalized.join(', ') : fallback;
+}
+
+function buildStructuredFallbackScript(hotelData) {
+    const hotelName = hotelData.hotel_name || 'this hotel';
+    const language = hotelData.language || 'English';
+    const location = hotelData.location || hotelData.address || hotelData.city || 'its destination';
+    const businessGoal = hotelData.business_goal || 'increase direct bookings';
+    const guestPreference = hotelData.guest_preference || 'not specified';
+    const amenities = normalizeList(hotelData.amenities).slice(0, 6);
+    const offers = normalizeList(hotelData.special_offers).slice(0, 4);
+    const attractions = normalizeList(
+        (hotelData.recommended_places || []).map((item) => item.name || item.attraction_name)
+            .concat(hotelData.nearby_attractions || [])
+    ).slice(0, 8);
+
+    const priceSegments = [
+        {
+            title: 'Scene 1 — Entry / Value segment',
+            audience: 'price-conscious travelers',
+            focus: 'accessible comfort and smart value'
+        },
+        {
+            title: 'Scene 2 — Mid-tier stay',
+            audience: 'couples and regular city visitors',
+            focus: 'balanced comfort, convenience, and local access'
+        },
+        {
+            title: 'Scene 3 — Premium experience',
+            audience: 'guests seeking elevated stays',
+            focus: 'signature features, atmosphere, and memorable service'
+        },
+        {
+            title: 'Scene 4 — Business-fit segment',
+            audience: 'business and goal-oriented travelers',
+            focus: `supporting the business goal: ${businessGoal}`
+        }
+    ];
+
+    if (offers.length) {
+        priceSegments.push({
+            title: 'Scene 5 — Offer-driven conversion',
+            audience: 'guests comparing options before booking',
+            focus: `special offers and booking motivation: ${offers.join(', ')}`
+        });
+    }
+
+    if (attractions.length) {
+        priceSegments.push({
+            title: 'Scene 6 — Destination pull',
+            audience: 'travelers choosing the area experience',
+            focus: `nearby attractions and local highlights: ${attractions.join(', ')}`
+        });
+    }
+
+    const intro = language.toLowerCase().startsWith('ru')
+        ? `Отель ${hotelName} в ${location} может быть представлен как серия из 4–6 сцен, где каждая сцена ведет гостя к бронированию.`
+        : `${hotelName} in ${location} can be presented as a 4–6 scene sequence where each scene moves the guest closer to booking.`;
+
+    const scenes = priceSegments.slice(0, 6).map((scene, index) => {
+        const attractionText = attractions.length
+            ? `Use these attractions where relevant: ${attractions.join(', ')}.`
+            : 'No confirmed attractions were found, so focus on hotel-led experience.';
+        const amenityText = amenities.length
+            ? `Hotel facts to weave in: ${amenities.join(', ')}.`
+            : 'Use available hotel facts without inventing extra amenities.';
+
+        return `${scene.title}\nAudience: ${scene.audience}.\nFocus: ${scene.focus}.\nGuest preference to reflect: ${guestPreference}.\n${amenityText}\n${attractionText}`;
+    });
+
+    return [intro, ...scenes].join('\n\n');
+}
+
 async function generateScript(hotelData) {
+    const hotelFacts = {
+        hotel_name: hotelData.hotel_name || null,
+        city: hotelData.city || null,
+        country: hotelData.country || null,
+        address: hotelData.address || null,
+        location: hotelData.location || null,
+        business_goal: hotelData.business_goal || null,
+        guest_preference: hotelData.guest_preference || null,
+        language: hotelData.language || 'English',
+        amenities: normalizeList(hotelData.amenities).slice(0, 12),
+        special_offers: normalizeList(hotelData.special_offers).slice(0, 8),
+        selected_place_categories: normalizeList(hotelData.selected_place_categories).slice(0, 8),
+        recommended_places: (Array.isArray(hotelData.recommended_places) ? hotelData.recommended_places : []).slice(0, 12),
+        nearby_attractions: normalizeList(hotelData.nearby_attractions).slice(0, 12),
+        description: hotelData.description || null
+    };
+
     const systemMessage = `You are an expert hospitality video script writer.
 Write in ${hotelData.language || 'English'}.
-Create a concise, vivid promotional script for a hotel.
-Use only the provided facts. Do not invent unavailable details.`;
+Return only the final script text.
+Create a detailed hotel promo script with 4 to 6 scenes.
+The script must be structured by price/value segments, moving from more accessible value to more premium positioning.
+Every scene must explicitly support the hotel's business goal, reflect the user's wishes/preferences, and use all relevant discovered attractions and hotel facts that were provided.
+Do not make the script short or generic.
+Do not invent facts that are not present in the input.
+If some facts are missing, work only with the available data.
+Use a clear scene-by-scene format:
+Scene 1: ...
+Scene 2: ...
+Each scene should contain a visual direction and voice-over text.
+Make the progression persuasive and commercially useful.`;
 
-    const userMessage = `Hotel data:
-${JSON.stringify(hotelData, null, 2)}
+    const userMessage = `Create the final hotel video script using these requirements:
+1. Produce 4 to 6 scenes.
+2. Split the narrative by price/value positioning, not as one short paragraph.
+3. In every scene, account for the business goal.
+4. In every scene, reflect the guest preference if provided.
+5. Use the discovered attractions throughout the script, not just once.
+6. Use the hotel information, amenities, offers, address/location, and other provided facts.
+7. Keep the script detailed enough for production.
+8. Return only the final script.
 
-Write the final video script.`;
+Hotel data:
+${JSON.stringify(hotelFacts, null, 2)}
+
+Important attraction coverage:
+- Recommended places: ${formatList((hotelData.recommended_places || []).map((item) => item.name || item.attraction_name), 'none')}
+- Nearby attractions: ${formatList(hotelData.nearby_attractions, 'none')}
+- Selected categories: ${formatList(hotelData.selected_place_categories, 'none')}
+
+Write the final script now.`;
 
     try {
         logger.debug(`AI: Starting Script Writer for: ${hotelData.hotel_name}`);
@@ -195,6 +312,7 @@ Predict the OSM data:`;
 module.exports = {
     azureChat,
     buildFallbackScript,
+    buildStructuredFallbackScript,
     selectRelevantPlaces,
     generateScript,
     extractCleanHotelName,

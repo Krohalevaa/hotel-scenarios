@@ -62,12 +62,16 @@ function buildAttractionCategoryMap(attractions) {
     }, {});
 }
 
-function buildSelectedAttractionsList(attractions) {
-    if (!Array.isArray(attractions) || attractions.length === 0) {
+function buildSelectedAttractionsList(attractions, fallbackAttractions = []) {
+    const source = Array.isArray(attractions) && attractions.length > 0
+        ? attractions
+        : fallbackAttractions;
+
+    if (!Array.isArray(source) || source.length === 0) {
         return [];
     }
 
-    return attractions
+    return source
         .map((attraction) => normalizeAttraction(attraction).attraction_name)
         .filter(Boolean)
         .slice(0, 12);
@@ -142,7 +146,7 @@ async function saveDiscoveredAttractions(scenarioId, hotelName, city, country, a
         city: city || null,
         country: country || null,
         attraction_categories: buildAttractionCategoryMap(attractions),
-        selected_attractions: buildSelectedAttractionsList(selectedAttractions)
+        selected_attractions: buildSelectedAttractionsList(selectedAttractions, attractions)
     };
 
     const { data, error } = await supabase

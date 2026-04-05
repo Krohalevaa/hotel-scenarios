@@ -37,6 +37,7 @@ async function processSingleHotel(hotelRequest) {
         created_at: new Date().toISOString(),
         hotel_website_url: hotelRequest.hotel_website_url,
         business_goal: hotelRequest.business_goal,
+        guest_preference: hotelRequest.guest_preference || '',
         contact_email: hotelRequest.contact_email,
         city: hotelRequest.city,
         hotel_context: '',
@@ -53,6 +54,7 @@ async function processSingleHotel(hotelRequest) {
         hotelData.user_id = context.user_id;
         hotelData.contact_email = context.contact_email;
         hotelData.business_goal = context.business_goal;
+        hotelData.guest_preference = context.guest_preference;
         hotelData.city = context.city;
         hotelData.language = context.language;
         hotelData.hotel_website_url = context.hotel_website_url;
@@ -66,6 +68,7 @@ async function processSingleHotel(hotelRequest) {
             hotel_website_url: context.hotel_website_url,
             contact_email: context.contact_email,
             business_goal: context.business_goal,
+            guest_preference: context.guest_preference,
             language: context.language,
             user_id: context.user_id,
             amenities: [],

@@ -59,7 +59,7 @@ async function declareQueue() {
  * Mirrors n8n node "RabbitMQ: Publish"
  */
 async function publishToQueue(data) {
-    logger.info(`publishToQueue start: hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}", user=${data?.user_id || 'n/a'}, hasEmail=${Boolean(data?.contact_email)}, hasGoal=${Boolean(data?.business_goal)}, city=${data?.city || 'n/a'}`);
+    logger.info(`publishToQueue start: hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}", user=${data?.user_id || 'n/a'}, hasEmail=${Boolean(data?.contact_email)}, hasGoal=${Boolean(data?.business_goal)}, hasPreference=${Boolean(data?.guest_preference)}, city=${data?.city || 'n/a'}`);
     await declareQueue();
 
     const url = `${RABBITMQ_BASE}/api/exchanges/${encodeURIComponent(VHOST)}/${EXCHANGE}/publish`;

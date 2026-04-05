@@ -6,6 +6,7 @@ const email = require('./email');
 const logger = require('./logger');
 const config = require('./config');
 const { consumeFromQueue } = require('./rabbitmq');
+const { DEFAULT_RADIUS_METERS } = require('./placePreferences');
 
 function collectKeyFeatures(hotelData) {
     const candidates = [
@@ -20,9 +21,6 @@ function collectKeyFeatures(hotelData) {
     )].slice(0, 5);
 }
 
-/**
- * Main hotel processing worker logic.
- */
 async function processHotelData(hotelData) {
     const hotelLogName = hotelData.hotel_name || hotelData.hotel_website_url;
     logger.info(`=== Starting processing for hotel: "${hotelLogName}" ===`);
@@ -37,10 +35,12 @@ async function processHotelData(hotelData) {
             contact_email: hotelData.contact_email,
             hotel_url: hotelData.hotel_website_url,
             business_goal: hotelData.business_goal,
+            guest_preference: hotelData.guest_preference || null,
             city: hotelData.city,
             language: hotelData.language || 'Russian',
             status: 'processing',
-            hotel_name: hotelData.hotel_name || null
+            hotel_name: hotelData.hotel_name || null,
+            selected_place_categories: []
         });
 
         const scenarioId = scriptRecord.id;
@@ -65,10 +65,12 @@ async function processHotelData(hotelData) {
             contact_email: hotelData.contact_email,
             hotel_url: hotelData.hotel_website_url,
             business_goal: hotelData.business_goal,
+            guest_preference: hotelData.guest_preference || null,
             city: hotelData.city,
             language: hotelData.language || 'Russian',
             status: 'processing',
-            hotel_name: canonicalName
+            hotel_name: canonicalName,
+            selected_place_categories: []
         });
 
         const geoResult = await geo.getGeoCoordinates(
@@ -85,18 +87,46 @@ async function processHotelData(hotelData) {
 
         logger.info(`Geocoding finished. Result: ${hotelData._geo_debug} [${hotelData.geo_lat}, ${hotelData.geo_lon}]`);
 
-        let attractions = [];
+        let allNearbyPlaces = [];
+        let recommendedPlaces = [];
+        let selectedCategories = [];
+
         if (hotelData.geo_lat && hotelData.geo_lon) {
-            logger.info('Step 2: Searching for nearby attractions...');
+            logger.info(`Step 2: Searching for nearby public places within ${DEFAULT_RADIUS_METERS} meters...`);
             await new Promise((resolve) => setTimeout(resolve, 3000));
-            attractions = await geo.searchAttractions(hotelData.geo_lat, hotelData.geo_lon);
-            logger.info(`Found ${attractions.length} attractions.`);
+            allNearbyPlaces = await geo.searchPublicPlaces(hotelData.geo_lat, hotelData.geo_lon, {
+                radius: DEFAULT_RADIUS_METERS
+            });
+            logger.info(`Found ${allNearbyPlaces.length} public places.`);
 
-            hotelData.nearby_attractions = attractions.map((item) => item.name || item.attraction_name).filter(Boolean);
+            hotelData.all_nearby_places = allNearbyPlaces;
 
-            if (attractions.length > 0) {
-                logger.info('Saving attractions to Supabase...');
-                await db.saveAttractions(scenarioId, hotelData.hotel_name, attractions);
+            logger.info('Step 3: AI agent is selecting preference-matching places...');
+            const placeSelection = await ai.selectRelevantPlaces(hotelData);
+            selectedCategories = placeSelection.selectedCategories || [];
+            recommendedPlaces = placeSelection.recommendedPlaces || [];
+
+            hotelData.selected_place_categories = selectedCategories;
+            hotelData.recommended_places = recommendedPlaces;
+            hotelData.nearby_attractions = recommendedPlaces.map((item) => item.name || item.attraction_name).filter(Boolean);
+
+            await db.saveScript({
+                id: scenarioId,
+                user_id: hotelData.user_id,
+                contact_email: hotelData.contact_email,
+                hotel_url: hotelData.hotel_website_url,
+                business_goal: hotelData.business_goal,
+                guest_preference: hotelData.guest_preference || null,
+                city: hotelData.city,
+                language: hotelData.language || 'Russian',
+                status: 'processing',
+                hotel_name: canonicalName,
+                selected_place_categories: selectedCategories
+            });
+
+            if (allNearbyPlaces.length > 0) {
+                logger.info('Saving public places to Supabase...');
+                await db.saveAttractions(scenarioId, hotelData.hotel_name, allNearbyPlaces);
             }
         }
 
@@ -109,11 +139,15 @@ async function processHotelData(hotelData) {
             address: hotelData.address || null,
             latitude: hotelData.geo_lat,
             longitude: hotelData.geo_lon,
-            attractions_found: attractions.length > 0,
-            key_features: collectKeyFeatures(hotelData)
+            attractions_found: allNearbyPlaces.length > 0,
+            key_features: collectKeyFeatures(hotelData),
+            attraction_count: allNearbyPlaces.length,
+            selected_attraction_count: recommendedPlaces.length,
+            search_radius_meters: DEFAULT_RADIUS_METERS,
+            selected_place_categories: selectedCategories
         });
 
-        logger.info('Step 3: Generating video script via AI...');
+        logger.info('Step 4: Generating video script via AI...');
 
         hotelData.location = hotelData.location || hotelData.address || hotelData.city || 'Unknown';
         hotelData.description = hotelData.description || `A beautiful hotel in ${hotelData.location}`;

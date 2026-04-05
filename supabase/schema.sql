@@ -33,14 +33,17 @@ create table if not exists public.hotel_scenarios (
     contact_email text,
     hotel_url text not null,
     business_goal text,
+    guest_preference text,
     city text,
     language text not null default 'Russian',
     status text not null default 'new',
     hotel_name text,
+    selected_place_categories jsonb not null default '[]'::jsonb,
     final_script text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
-    constraint hotel_scenarios_status_check check (status in ('new', 'processing', 'completed', 'failed'))
+    constraint hotel_scenarios_status_check check (status in ('new', 'processing', 'completed', 'failed')),
+    constraint hotel_scenarios_selected_place_categories_check check (jsonb_typeof(selected_place_categories) = 'array')
 );
 
 create index if not exists idx_hotel_scenarios_user_id on public.hotel_scenarios(user_id);
@@ -52,10 +55,38 @@ create table if not exists public.hotel_attractions (
     scenario_id uuid not null references public.hotel_scenarios(id) on delete cascade,
     hotel_name text,
     attraction_name text not null,
-    created_at timestamptz not null default now()
+    category text not null,
+    categories jsonb not null default '[]'::jsonb,
+    latitude double precision,
+    longitude double precision,
+    address text,
+    source text,
+    radius_meters integer,
+    osm_type text,
+    osm_id bigint,
+    tags jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    constraint hotel_attractions_category_check check (
+        category in (
+            'sports',
+            'children',
+            'honeymoon',
+            'culture',
+            'history',
+            'nature',
+            'shopping',
+            'food',
+            'entertainment',
+            'nightlife',
+            'wellness'
+        )
+    ),
+    constraint hotel_attractions_categories_check check (jsonb_typeof(categories) = 'array'),
+    constraint hotel_attractions_tags_check check (jsonb_typeof(tags) = 'object')
 );
 
 create index if not exists idx_hotel_attractions_scenario_id on public.hotel_attractions(scenario_id);
+create index if not exists idx_hotel_attractions_category on public.hotel_attractions(category);
 
 create table if not exists public.hotel_source_data (
     id bigserial primary key,
@@ -69,12 +100,17 @@ create table if not exists public.hotel_source_data (
     longitude double precision,
     attractions_found boolean not null default false,
     key_features jsonb not null default '[]'::jsonb,
+    attraction_count integer not null default 0,
+    selected_attraction_count integer not null default 0,
+    search_radius_meters integer not null default 3000,
+    selected_place_categories jsonb not null default '[]'::jsonb,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     constraint hotel_source_data_key_features_check check (
         jsonb_typeof(key_features) = 'array'
         and jsonb_array_length(key_features) <= 5
-    )
+    ),
+    constraint hotel_source_data_selected_place_categories_check check (jsonb_typeof(selected_place_categories) = 'array')
 );
 
 create index if not exists idx_hotel_source_data_city on public.hotel_source_data(city);
@@ -226,5 +262,6 @@ with check (
 
 comment on table public.user_profiles is 'Application profile data. Authentication remains in Supabase Auth.';
 comment on table public.hotel_scenarios is 'Generated hotel video scenarios and final scripts.';
-comment on table public.hotel_attractions is 'Nearby attractions found for a hotel scenario.';
+comment on table public.hotel_attractions is 'Nearby public places found for a hotel scenario within the configured radius.';
+comment on column public.hotel_attractions.category is 'Primary place category. Allowed values: sports, children, honeymoon, culture, history, nature, shopping, food, entertainment, nightlife, wellness.';
 comment on table public.hotel_source_data is 'Parsed source data collected by headless browser and geocoding pipeline.';

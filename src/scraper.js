@@ -80,6 +80,7 @@ function extractHotelInfo(data, context) {
         other_headings: [],
         city: context.city,
         business_goal: context.business_goal,
+        guest_preference: context.guest_preference || '',
         contact_email: context.contact_email,
         language: context.language || 'English',
         hotel_website_url: context.hotel_website_url

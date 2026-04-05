@@ -2,25 +2,29 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
+const {
+    DEFAULT_RADIUS_METERS,
+    PLACE_CATEGORY_DEFINITIONS,
+    getAllCategoryKeys,
+    normalizeText
+} = require('./placePreferences');
 
-// Шаг 1: Настройка Axios инстанса
 const geoAxios = axios.create({
     headers: {
         'User-Agent': 'HotelScenarioGenerator/2.0 (akrohaleva67@gmail.com)'
     }
 });
 
-// Task 8: Persistent City Cache
 const CITY_CACHE_FILE = path.join(__dirname, '../city_cache.json');
 let cityCache = new Map([
-    ["New York", { lat: 40.7128, lon: -74.0060 }],
-    ["London", { lat: 51.5074, lon: -0.1278 }],
-    ["Paris", { lat: 48.8566, lon: 2.3522 }],
-    ["Las Vegas", { lat: 36.1716, lon: -115.1391 }],
-    ["Los Angeles", { lat: 34.0522, lon: -118.2437 }],
-    ["Chicago", { lat: 41.8781, lon: -87.6298 }],
-    ["Washington DC", { lat: 38.9072, lon: -77.0369 }],
-    ["Miami Beach", { lat: 25.7907, lon: -80.1300 }]
+    ['New York', { lat: 40.7128, lon: -74.0060 }],
+    ['London', { lat: 51.5074, lon: -0.1278 }],
+    ['Paris', { lat: 48.8566, lon: 2.3522 }],
+    ['Las Vegas', { lat: 36.1716, lon: -115.1391 }],
+    ['Los Angeles', { lat: 34.0522, lon: -118.2437 }],
+    ['Chicago', { lat: 41.8781, lon: -87.6298 }],
+    ['Washington DC', { lat: 38.9072, lon: -77.0369 }],
+    ['Miami Beach', { lat: 25.7907, lon: -80.1300 }]
 ]);
 
 function loadCityCache() {
@@ -46,23 +50,20 @@ function saveCityCache() {
 
 loadCityCache();
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Шаг 2: Внедрение Retry Pattern
 async function fetchWithRetry(requestFn, maxRetries = 3) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             return await requestFn();
         } catch (err) {
             const status = err.response?.status;
-            // Overpass often returns 504 on heavy load
             const shouldRetry = status === 429 || (status >= 500 && status <= 504);
 
             if (shouldRetry && attempt < maxRetries) {
-                // Более агрессивное ожидание для 429 (Rate Limit) и 504 (Timeout)
                 const delay = (status === 429 ? 15000 : 3000) * Math.pow(2, attempt);
                 logger.warn(`Retry attempt ${attempt + 1} after ${delay}ms due to status ${status}`);
-                await new Promise(resolve => setTimeout(resolve, delay));
+                await new Promise((resolve) => setTimeout(resolve, delay));
                 continue;
             }
             throw err;
@@ -70,16 +71,13 @@ async function fetchWithRetry(requestFn, maxRetries = 3) {
     }
 }
 
-// Task 6: Refined Sanitization (removed 'Park' and 'Central')
 function sanitizeHotelName(name) {
-    if (!name) return "";
+    if (!name) return '';
 
     logger.debug(`Sanitizing hotel name: "${name}"`);
-    // 1. Убираем протоколы, www и доменные зоны
     let clean = name.replace(/^(https?:\/\/)?(www\.)?/i, '');
     clean = clean.split('/')[0].replace(/\.(com|net|org|biz|info|gov|edu|me|tv|io|ru|us|uk|ca|site)(\..+)?$/i, '');
 
-    // 2. Список стоп-слов/фраз для удаления маркетингового мусора
     const stopPhrases = [
         'Official Site', 'Official Website', 'Best Rate Guaranteed',
         'Exclusive Stay', 'Welcome to', 'LLC', 'Premium', 'Classic'
@@ -89,7 +87,7 @@ function sanitizeHotelName(name) {
 
     clean = clean
         .replace(regexStopWords, '')
-        .replace(/[._\-+,]/g, ' ') // Заменяем спецсимволы на пробелы
+        .replace(/[._\-+,]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -97,11 +95,9 @@ function sanitizeHotelName(name) {
     return clean;
 }
 
-// Поиск координат города (с кэшированием)
 async function getCityCoordinates(city) {
     if (!city) return null;
-    
-    // Проверка кэша
+
     if (cityCache.has(city)) {
         logger.debug(`City "${city}" found in cache.`);
         return cityCache.get(city);
@@ -109,17 +105,16 @@ async function getCityCoordinates(city) {
 
     logger.info(`Geocoding City: "${city}"...`);
     try {
-        // Принудительная пауза перед запросом к Nominatim
         await sleep(1500);
         const response = await fetchWithRetry(() => geoAxios.get('https://nominatim.openstreetmap.org/search', {
-            params: { city: city, format: 'json', limit: 1 },
+            params: { city, format: 'json', limit: 1 },
             timeout: 7000
         }));
         if (response.data[0]) {
             const coords = { lat: response.data[0].lat, lon: response.data[0].lon };
             logger.info(`City "${city}" found at [${coords.lat}, ${coords.lon}]`);
-            cityCache.set(city, coords); // Сохраняем в кэш
-            saveCityCache(); // Persistence
+            cityCache.set(city, coords);
+            saveCityCache();
             return coords;
         }
         logger.warn(`City "${city}" NOT found.`);
@@ -130,7 +125,6 @@ async function getCityCoordinates(city) {
     }
 }
 
-// Task 15: Optimize Overpass search (Exact name first)
 async function searchHotelInRadius(name, cityLat, cityLon, radius = 20000, website = '') {
     if ((!name || name.length < 3) && !website) {
         logger.warn(`Search parameters too weak: name="${name}", website="${website}"`);
@@ -138,17 +132,15 @@ async function searchHotelInRadius(name, cityLat, cityLon, radius = 20000, websi
     }
 
     logger.info(`Searching hotel "${name}" ${website ? `(site: ${website})` : ''} via Overpass in ${radius}m radius...`);
-    
-    const cleanName = (name || "").replace(/['"\\/]/g, '');
+
+    const cleanName = (name || '').replace(/['"\\/]/g, '');
     const domainPart = website ? website.replace(/https?:\/\//, '').replace(/^www\./, '').split('/')[0] : '';
-    
-    // Strategy 1: Exact name match (Much faster)
+
     const exactQuery = `[out:json][timeout:30];(
         node["tourism"~"hotel|resort|guest_house|hostel"]["name"="${cleanName}"](around:${radius},${cityLat},${cityLon});
         way["tourism"~"hotel|resort|guest_house|hostel"]["name"="${cleanName}"](around:${radius},${cityLat},${cityLon});
     ); out center 1;`;
 
-    // Strategy 2: Regexp/Website match (Slower fallback)
     const regexQuery = `[out:json][timeout:30];(` +
         (cleanName.length >= 3 ? `
           node["tourism"~"hotel|resort|guest_house|hostel"]["name"~"${cleanName}",i](around:${radius},${cityLat},${cityLon});
@@ -178,8 +170,8 @@ async function searchHotelInRadius(name, cityLat, cityLon, radius = 20000, websi
                 const lon = element.lon || element.center?.lon;
                 logger.info(`Overpass matched (Layer ${q + 1}): "${element.tags?.name}" at [${lat}, ${lon}]`);
                 return {
-                    lat: lat,
-                    lon: lon,
+                    lat,
+                    lon,
                     name: element.tags?.name || name,
                     address: element.tags?.['addr:full'] || element.tags?.['addr:street'] || null
                 };
@@ -192,7 +184,6 @@ async function searchHotelInRadius(name, cityLat, cityLon, radius = 20000, websi
     return null;
 }
 
-// Task 3: Nominatim Accuracy filtering
 async function nominatimSearch(query, city) {
     try {
         await sleep(1500);
@@ -203,8 +194,7 @@ async function nominatimSearch(query, city) {
 
         if (!resp.data || resp.data.length === 0) return null;
 
-        // Filter for hotel-like buildings first
-        const matched = resp.data.find(item => 
+        const matched = resp.data.find((item) =>
             ['hotel', 'resort', 'guest_house', 'hostel', 'motel', 'tourism'].includes(item.type) ||
             item.class === 'tourism' ||
             (item.class === 'building' && item.type === 'yes')
@@ -222,47 +212,40 @@ async function getGeoCoordinates(hotelName, city, hotelWebsite = '', osmPredicti
     const cleanHotelName = sanitizeHotelName(hotelName);
     const aiOsmName = osmPrediction?.osm_target_name || '';
 
-    // Шаг 1: Находим координаты города сразу
     const cityCoords = await getCityCoordinates(city);
     if (!cityCoords) {
         logger.error(`Geocoding aborted for "${hotelName}": city coords missing.`);
         return { geo_lat: null, geo_lon: null, address: null, _geo_debug_name: null };
     }
 
-    // Список стратегий поиска (от наиболее точных к менее точным)
     const strategies = [
-        // 1. Overpass: LLM Name + Website
-        { 
-            name: "Overpass (AI Name + Website)", 
-            fn: () => searchHotelInRadius(aiOsmName, cityCoords.lat, cityCoords.lon, 20000, hotelWebsite) 
+        {
+            name: 'Overpass (AI Name + Website)',
+            fn: () => searchHotelInRadius(aiOsmName, cityCoords.lat, cityCoords.lon, 20000, hotelWebsite)
         },
-        // 2. Overpass: Clean Sanitized Name
-        { 
-            name: "Overpass (Sanitized Name)", 
-            fn: () => searchHotelInRadius(cleanHotelName, cityCoords.lat, cityCoords.lon, 20000) 
+        {
+            name: 'Overpass (Sanitized Name)',
+            fn: () => searchHotelInRadius(cleanHotelName, cityCoords.lat, cityCoords.lon, 20000)
         },
-        // 3. Nominatim: LLM Name
-        { 
-            name: "Nominatim (AI Name)", 
+        {
+            name: 'Nominatim (AI Name)',
             fn: () => nominatimSearch(aiOsmName, city)
         },
-        // 4. Nominatim: Clean Sanitized Name
-        { 
-            name: "Nominatim (Sanitized Name)", 
+        {
+            name: 'Nominatim (Sanitized Name)',
             fn: () => nominatimSearch(cleanHotelName, city)
         }
     ];
 
     for (const strategy of strategies) {
         try {
-            await sleep(2000); // Обязательная пауза между стратегиями
+            await sleep(2000);
             logger.debug(`Executing geocoding strategy: ${strategy.name}`);
             const result = await strategy.fn();
             if (result && result.lat && result.lon) {
-                // Проверка: не вернул ли нам Nominatim просто координаты города? (обычно если имя совсем не подошло)
-                const isCityCenter = Math.abs(parseFloat(result.lat) - cityCoords.lat) < 0.005 && 
-                                   Math.abs(parseFloat(result.lon) - cityCoords.lon) < 0.005;
-                
+                const isCityCenter = Math.abs(parseFloat(result.lat) - cityCoords.lat) < 0.005 &&
+                    Math.abs(parseFloat(result.lon) - cityCoords.lon) < 0.005;
+
                 if (!isCityCenter) {
                     logger.info(`Strategy "${strategy.name}" SUCCESS: [${result.lat}, ${result.lon}]`);
                     return {
@@ -279,7 +262,6 @@ async function getGeoCoordinates(hotelName, city, hotelWebsite = '', osmPredicti
         }
     }
 
-    // Финальный фоллбэк - Центр города
     logger.warn(`All geocoding strategies failed for "${hotelName}". Using City Center fallback.`);
     return {
         geo_lat: parseFloat(cityCoords.lat),
@@ -289,72 +271,168 @@ async function getGeoCoordinates(hotelName, city, hotelWebsite = '', osmPredicti
     };
 }
 
-// Task 2: Attractions fallback to Nominatim
-async function searchAttractions(lat, lon) {
+function escapeOverpassValue(value) {
+    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function buildTagQuery(elementType, tagKey, tagValue, radius, lat, lon) {
+    const escapedKey = escapeOverpassValue(tagKey);
+    if (tagValue === '*') {
+        return `${elementType}["${escapedKey}"](around:${radius},${lat},${lon});`;
+    }
+
+    const escapedValue = escapeOverpassValue(tagValue);
+    return `${elementType}["${escapedKey}"="${escapedValue}"](around:${radius},${lat},${lon});`;
+}
+
+function buildPublicPlacesQuery(radius, lat, lon) {
+    const queryParts = [];
+
+    for (const definition of Object.values(PLACE_CATEGORY_DEFINITIONS)) {
+        for (const [tagKey, tagValues] of Object.entries(definition.osm || {})) {
+            for (const tagValue of tagValues) {
+                queryParts.push(buildTagQuery('node', tagKey, tagValue, radius, lat, lon));
+                queryParts.push(buildTagQuery('way', tagKey, tagValue, radius, lat, lon));
+            }
+        }
+    }
+
+    return `[out:json][timeout:90];(${queryParts.join('\n')});out center tags;`;
+}
+
+function inferCategoriesFromTags(tags = {}) {
+    const categories = new Set();
+    const normalizedTags = Object.entries(tags).map(([key, value]) => `${normalizeText(key)} ${normalizeText(value)}`.trim());
+
+    for (const [categoryKey, definition] of Object.entries(PLACE_CATEGORY_DEFINITIONS)) {
+        const osmRules = definition.osm || {};
+        const keywordRules = definition.keywords || [];
+
+        for (const [tagKey, tagValues] of Object.entries(osmRules)) {
+            const tagValue = tags[tagKey];
+            if (!tagValue) continue;
+            if (tagValues.includes('*') || tagValues.includes(tagValue)) {
+                categories.add(categoryKey);
+            }
+        }
+
+        if (keywordRules.some((keyword) => normalizedTags.some((tagText) => tagText.includes(keyword)))) {
+            categories.add(categoryKey);
+        }
+    }
+
+    return [...categories];
+}
+
+function buildPlaceRecord(element, radius) {
+    const tags = element.tags || {};
+    const name = tags.name || tags['name:en'];
+    if (!name) {
+        return null;
+    }
+
+    const lat = element.lat || element.center?.lat || null;
+    const lon = element.lon || element.center?.lon || null;
+    const categories = inferCategoriesFromTags(tags);
+    if (categories.length === 0) {
+        return null;
+    }
+
+    return {
+        name,
+        category: categories[0],
+        categories,
+        source: 'overpass',
+        radius_meters: radius,
+        latitude: lat ? Number(lat) : null,
+        longitude: lon ? Number(lon) : null,
+        osm_type: element.type || null,
+        osm_id: element.id || null,
+        tags,
+        address: tags['addr:full'] || [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(' ').trim() || null
+    };
+}
+
+function dedupePlaces(places) {
+    const seen = new Map();
+
+    for (const place of places) {
+        const key = normalizeText(place.name);
+        if (!key) continue;
+
+        const existing = seen.get(key);
+        if (!existing) {
+            seen.set(key, place);
+            continue;
+        }
+
+        const mergedCategories = [...new Set([...(existing.categories || []), ...(place.categories || [])])];
+        seen.set(key, {
+            ...existing,
+            ...place,
+            category: existing.category || place.category,
+            categories: mergedCategories
+        });
+    }
+
+    return [...seen.values()];
+}
+
+function filterPlacesByPreference(places, preferredCategories = []) {
+    if (!Array.isArray(places) || places.length === 0) {
+        return [];
+    }
+
+    if (!Array.isArray(preferredCategories) || preferredCategories.length === 0) {
+        return places;
+    }
+
+    const preferred = new Set(preferredCategories);
+    return places.filter((place) => (place.categories || []).some((category) => preferred.has(category)));
+}
+
+async function searchPublicPlaces(lat, lon, options = {}) {
     if (!lat || !lon) return [];
 
-    logger.debug(`Searching attractions @ [${lat}, ${lon}]...`);
-    
-    // Method 1: Overpass
-    const query = `[out:json][timeout:90];(
-        node["tourism"~"museum|gallery|attraction|theme_park"](around:2000,${lat},${lon});
-        way["tourism"~"museum|gallery|attraction|theme_park"](around:2000,${lat},${lon});
-        node["historic"~"monument|memorial|castle"](around:2000,${lat},${lon});
-    ); out tags 15;`;
+    const radius = Number(options.radius || DEFAULT_RADIUS_METERS);
+    logger.info(`Searching public places @ [${lat}, ${lon}] within ${radius}m...`);
 
-    let elements = [];
+    const query = buildPublicPlacesQuery(radius, lat, lon);
+
     try {
         const response = await fetchWithRetry(() => axios.post('https://overpass-api.de/api/interpreter', query, {
             headers: { 'Content-Type': 'text/plain' },
-            timeout: 20000
+            timeout: 45000
         }));
-        elements = response.data.elements || [];
+
+        const elements = response.data.elements || [];
+        const places = dedupePlaces(
+            elements
+                .map((element) => buildPlaceRecord(element, radius))
+                .filter(Boolean)
+        );
+
+        logger.info(`Found ${places.length} public places in radius ${radius}m.`);
+        return places;
     } catch (err) {
-        logger.warn(`Overpass attractions failed: ${err.message}. Trying Nominatim fallback...`);
-        // Method 2: Nominatim Fallback
-        try {
-            await sleep(1500);
-            const resp = await geoAxios.get('https://nominatim.openstreetmap.org/search', {
-                params: { q: 'attractions', format: 'json', limit: 10, lat, lon },
-                timeout: 10000
-            });
-            elements = (resp.data || []).map(d => ({ 
-                tags: { 
-                    name: d.display_name.split(',')[0], 
-                    tourism: d.type === 'attraction' ? 'attraction' : 'other' 
-                } 
-            }));
-        } catch (nomErr) {
-            logger.error(`Nominatim attractions fallback failed: ${nomErr.message}`);
-        }
+        logger.error(`Public places search failed: ${err.message}`);
+        return [];
     }
-
-    const results = elements
-        .map(el => {
-            const tags = el.tags || {};
-            const name = tags.name || tags['name:en'];
-            if (!name) return null;
-
-            let category = 'Attraction';
-            if (tags.tourism === 'museum') category = 'Museum';
-            if (tags.historic) category = 'Historic';
-            return { name, category };
-        })
-        .filter(Boolean);
-
-    // Unique & Slice
-    const uniqueResults = [];
-    const seenNames = new Set();
-    for (const item of results) {
-        if (!seenNames.has(item.name)) {
-            seenNames.add(item.name);
-            uniqueResults.push(item);
-        }
-    }
-
-    const finalResults = uniqueResults.slice(0, 5);
-    logger.debug(`Found attractions: ${finalResults.map(r => `${r.name} (${r.category})`).join(', ')}`);
-    return finalResults;
 }
 
-module.exports = { getGeoCoordinates, searchAttractions, getCityCoordinates };
+async function searchAttractions(lat, lon) {
+    const places = await searchPublicPlaces(lat, lon, {
+        radius: DEFAULT_RADIUS_METERS,
+        categories: getAllCategoryKeys()
+    });
+
+    return places.slice(0, 60);
+}
+
+module.exports = {
+    getGeoCoordinates,
+    searchAttractions,
+    searchPublicPlaces,
+    filterPlacesByPreference,
+    getCityCoordinates
+};

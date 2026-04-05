@@ -473,6 +473,11 @@
                                 <input id="city" type="text" placeholder="London" required>
                             </div>
                             <div>
+                                <label for="guestPreference">Guest preference</label>
+                                <input id="guestPreference" type="text"
+                                    placeholder="Family отдых, adults only, honeymoon">
+                            </div>
+                            <div>
                                 <label for="contactEmail">Result email</label>
                                 <input id="contactEmail" type="email" placeholder="you@example.com">
                             </div>
@@ -689,6 +694,7 @@
             const normalizedScript = normalizeScriptText(item.final_script);
             const hotelName = formatDisplayText(item.hotel_name, 'Script');
             const businessGoal = formatDisplayText(item.business_goal);
+            const guestPreference = formatDisplayText(item.guest_preference);
             const hotelUrl = decodeText(item.hotel_url);
             const hasUrl = Boolean(hotelUrl);
             const attractions = Array.isArray(item.hotel_attractions)
@@ -702,6 +708,7 @@
             scriptModalMeta.innerHTML = `
                 <div><strong>Status:</strong> ${escapeHtml(formatDisplayText(item.status, 'new'))}</div>
                 <div><strong>Goal:</strong> ${escapeHtml(businessGoal)}</div>
+                <div><strong>Guest preference:</strong> ${escapeHtml(guestPreference)}</div>
                 <div><strong>City:</strong> ${escapeHtml(formatDisplayText(item.city))}</div>
                 <div><strong>Language:</strong> ${escapeHtml(formatDisplayText(item.language, 'English'))}</div>
                 <div>${hasUrl ? `<strong><a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Hotel link</a></strong>` : '—'}</div>
@@ -751,6 +758,7 @@
                 const hotelName = formatDisplayText(item.hotel_name, 'Untitled');
                 const businessGoal = formatDisplayText(item.business_goal);
                 const city = formatDisplayText(item.city);
+                const guestPreference = formatDisplayText(item.guest_preference);
                 const hotelUrl = decodeText(item.hotel_url);
                 const scriptId = `script-${index}`;
                 window.__scriptsMap[scriptId] = item;
@@ -769,6 +777,7 @@
           </div>
           <div style="margin-top:12px;color:#334155;"><strong>Goal:</strong> ${escapeHtml(businessGoal)}</div>
           <div style="margin-top:6px;color:#334155;"><strong>City:</strong> ${escapeHtml(city)}</div>
+          <div style="margin-top:6px;color:#334155;"><strong>Guest preference:</strong> ${escapeHtml(guestPreference)}</div>
           <div style="margin-top:6px;color:#334155;"><strong>Email:</strong> ${escapeHtml(formatDisplayText(item.contact_email))}</div>
           <div style="margin-top:6px;color:#334155;">${hotelUrl ? `<a href="${escapeHtml(hotelUrl)}" target="_blank" rel="noopener noreferrer">Open link</a>` : '—'}</div>
           <div class="script-actions">
@@ -890,6 +899,7 @@
                         hotel_website_url: document.getElementById('hotelUrl').value.trim(),
                         business_goal: document.getElementById('businessGoal').value.trim(),
                         city: document.getElementById('city').value.trim(),
+                        guest_preference: document.getElementById('guestPreference').value.trim(),
                         contact_email: document.getElementById('contactEmail').value.trim(),
                         language: document.getElementById('language').value
                     })

@@ -1,10 +1,12 @@
 const axios = require('axios');
 const config = require('./config');
 const logger = require('./logger');
+const {
+    buildPreferenceSummary,
+    getAllCategoryKeys,
+    PLACE_CATEGORY_DEFINITIONS
+} = require('./placePreferences');
 
-/**
- * Direct Azure OpenAI REST API call (no LangChain needed).
- */
 async function azureChat(systemMessage, userMessage, deployment) {
     const url = `https://${config.AZURE_OPENAI_API_INSTANCE_NAME}.openai.azure.com/openai/deployments/${deployment}/chat/completions?api-version=${config.AZURE_OPENAI_API_VERSION}`;
 
@@ -56,13 +58,25 @@ async function azureChat(systemMessage, userMessage, deployment) {
     throw new Error(`AI Request failed after 3 attempts: ${lastError.message}`);
 }
 
+function formatPlaceForPrompt(place) {
+    const categories = Array.isArray(place?.categories) && place.categories.length
+        ? place.categories.join(', ')
+        : place?.category || 'unknown';
+
+    return `${place?.name || 'Unknown place'} [categories: ${categories}]${place?.address ? `, address: ${place.address}` : ''}`;
+}
+
 function buildFallbackScript(hotelData) {
     const hotelName = hotelData.hotel_name || 'the hotel';
     const city = hotelData.city || 'the city';
     const country = hotelData.country || 'the destination';
-    const attractions = Array.isArray(hotelData.nearby_attractions) ? hotelData.nearby_attractions.slice(0, 5) : [];
+    const attractions = Array.isArray(hotelData.recommended_places) && hotelData.recommended_places.length
+        ? hotelData.recommended_places.slice(0, 5)
+        : Array.isArray(hotelData.nearby_attractions)
+            ? hotelData.nearby_attractions.slice(0, 5)
+            : [];
     const attractionText = attractions.length
-        ? attractions.map((item) => item.name).filter(Boolean).join(', ')
+        ? attractions.map((item) => item.name || item.attraction_name || item).filter(Boolean).join(', ')
         : 'popular local attractions';
 
     return [
@@ -72,6 +86,95 @@ function buildFallbackScript(hotelData) {
         `Whether you are traveling for leisure or business, ${hotelName} is positioned to help you enjoy the best of ${city}.`,
         `Book your stay at ${hotelName} and discover everything this destination has to offer.`
     ].join(' ');
+}
+
+async function selectRelevantPlaces(hotelData) {
+    const allPlaces = Array.isArray(hotelData.all_nearby_places) ? hotelData.all_nearby_places : [];
+    if (allPlaces.length === 0) {
+        return {
+            selectedCategories: [],
+            recommendedPlaces: [],
+            rejectedPlaces: []
+        };
+    }
+
+    const preferenceSummary = buildPreferenceSummary(hotelData.guest_preference);
+    const fallbackCategories = preferenceSummary.map((item) => item.key);
+    const categoryDefinitions = getAllCategoryKeys().map((key) => ({
+        key,
+        label: PLACE_CATEGORY_DEFINITIONS[key]?.label || key
+    }));
+
+    const systemMessage = `You are an AI travel relevance agent.
+Your task is to select only the nearby public places that match the guest preference.
+
+RULES:
+1. Return STRICT JSON only.
+2. Use only categories from the allowed list.
+3. If guest preference is sports, keep sports-related places only.
+4. If guest preference is shopping, keep shopping-related places only.
+5. If guest preference is children/family, keep family and kids places only.
+6. If guest preference is honeymoon/romance, keep romantic, scenic, park, viewpoint, fine dining, and couple-friendly places only.
+7. Reject places that do not match the preference.
+8. Keep up to 12 best matching places.
+9. Prefer places with direct category match over generic attractions.
+10. If preference is empty or unclear, use the fallback categories inferred from the preference parser. If still empty, keep the best diverse places.
+
+JSON FORMAT:
+{
+  "selected_categories": ["sports"],
+  "recommended_place_names": ["Madison Square Garden"],
+  "rejected_place_names": ["Broadway Theatre"],
+  "reason": "short explanation"
+}`;
+
+    const userMessage = `Guest preference: ${hotelData.guest_preference || 'Not specified'}
+Fallback inferred categories: ${fallbackCategories.join(', ') || 'none'}
+Allowed categories: ${JSON.stringify(categoryDefinitions)}
+Nearby public places:
+${allPlaces.map((place) => `- ${formatPlaceForPrompt(place)}`).join('\n')}`;
+
+    try {
+        const raw = await azureChat(systemMessage, userMessage, config.AZURE_OPENAI_DEPLOYMENT_SQL);
+        const clean = raw.replace(/^```[a-z]*\n?/i, '').replace(/```$/m, '').trim();
+        const parsed = JSON.parse(clean);
+
+        const selectedCategories = Array.isArray(parsed.selected_categories)
+            ? parsed.selected_categories.filter((item) => getAllCategoryKeys().includes(item))
+            : fallbackCategories;
+        const recommendedNames = new Set(Array.isArray(parsed.recommended_place_names) ? parsed.recommended_place_names : []);
+        const rejectedNames = new Set(Array.isArray(parsed.rejected_place_names) ? parsed.rejected_place_names : []);
+
+        let recommendedPlaces = allPlaces.filter((place) => recommendedNames.has(place.name));
+        if (recommendedPlaces.length === 0 && selectedCategories.length > 0) {
+            recommendedPlaces = allPlaces.filter((place) => (place.categories || []).some((category) => selectedCategories.includes(category)));
+        }
+        if (recommendedPlaces.length === 0) {
+            recommendedPlaces = allPlaces.slice(0, 12);
+        }
+
+        const rejectedPlaces = allPlaces.filter((place) => rejectedNames.has(place.name));
+
+        return {
+            selectedCategories,
+            recommendedPlaces: recommendedPlaces.slice(0, 12),
+            rejectedPlaces,
+            reason: parsed.reason || null
+        };
+    } catch (err) {
+        logger.warn(`AI place selection failed, using parser fallback: ${err.message}`);
+        const selectedCategories = fallbackCategories;
+        const recommendedPlaces = selectedCategories.length > 0
+            ? allPlaces.filter((place) => (place.categories || []).some((category) => selectedCategories.includes(category))).slice(0, 12)
+            : allPlaces.slice(0, 12);
+
+        return {
+            selectedCategories,
+            recommendedPlaces,
+            rejectedPlaces: [],
+            reason: 'fallback parser selection'
+        };
+    }
 }
 
 async function generateScript(hotelData) {
@@ -91,6 +194,12 @@ async function generateScript(hotelData) {
             return String(item);
         }).join(', ')
         : hotelData.nearby_attractions || 'Not specified';
+    const formattedRecommendedPlaces = Array.isArray(hotelData.recommended_places)
+        ? hotelData.recommended_places.map((item) => formatPlaceForPrompt(item)).join(', ')
+        : 'Not specified';
+    const formattedSelectedCategories = Array.isArray(hotelData.selected_place_categories)
+        ? hotelData.selected_place_categories.join(', ')
+        : 'Not specified';
 
     const systemMessage = `You are a professional scriptwriter for short, dynamic TikTok/Reels hotel commercials optimized for AI video generation tools.
 
@@ -104,6 +213,8 @@ CRITICAL OUTPUT RULES:
 5. The script must feel premium, specific, visual, and commercially persuasive.
 6. Do not invent facts that are not supported by the provided hotel data.
 7. If some data is missing, simply emphasize the strongest available details.
+8. If guest preference exists, prioritize only preference-matching nearby places in the script.
+9. Mention only places from Recommended Nearby Places when that list is available.
 
 STRICT OUTPUT FORMAT:
 15s TikTok/Reels Script – [Hotel Name], [City or Location]
@@ -137,12 +248,12 @@ CONTENT REQUIREMENTS:
 3. Use 4 to 7 scenes depending on how much useful hotel information is available. Do not force extra scenes if the data is thin.
 4. Every scene must introduce a distinct angle, for example: hook, room experience, amenities, location, atmosphere, offer, CTA.
 5. Mention specific amenities and differentiators whenever available.
-6. You MUST mention at least 1–2 specific nearby attractions from the Nearby Attractions list if any are provided.
+6. You MUST mention at least 1–2 specific nearby attractions from the Recommended Nearby Places list if any are provided.
 7. If special offers are provided, integrate them naturally into the final scene or the scene before the final CTA. If no offer exists, create urgency aligned with the Business Goal without inventing fake discounts.
-8. Visual directions must be concrete and useful for AI video generation: mention shot type, movement, subject, and mood. Examples of style: “slow push-in on the suite balcony at golden hour”, “quick cut to rooftop pool with city lights”, “smooth pan across breakfast setup”.
+8. Visual directions must be concrete and useful for AI video generation: mention shot type, movement, subject, and mood.
 9. On-screen text must be short, readable, and impactful.
 10. Voiceover must sound natural for TikTok/Reels: energetic, warm, slightly intimate, not corporate.
-11. Maximize use of the provided hotel information: hotel name, location, description, amenities, special offers, photos, nearby attractions, and business goal.
+11. Maximize use of the provided hotel information: hotel name, location, description, amenities, special offers, photos, recommended nearby places, and business goal.
 12. Keep the whole script concise enough for an approximately 15-second video.
 13. If photos are provided, use them as visual inspiration for what to show in the scenes.
 14. Do not output explanations, notes, JSON, or commentary outside the script.`;
@@ -158,7 +269,10 @@ Special Offers: ${formattedOffers}
 Amenities: ${formattedAmenities}
 Photos: ${formattedPhotos}
 Nearby Attractions: ${formattedAttractions}
+Recommended Nearby Places: ${formattedRecommendedPlaces}
+Selected Place Categories: ${formattedSelectedCategories}
 Business Goal: ${hotelData.business_goal}
+Guest Preference: ${hotelData.guest_preference || 'Not specified'}
 Target Language: ${hotelData.language}`;
 
     try {
@@ -173,9 +287,6 @@ Target Language: ${hotelData.language}`;
     }
 }
 
-/**
- * AI: Извлекает чистое название отеля из рекламного текста или URL.
- */
 async function extractCleanHotelName(input, url = '') {
     if (!input && !url) return null;
 
@@ -207,9 +318,6 @@ URL сайта: "${url}"
     }
 }
 
-/**
- * AI: Предсказывает точное название отеля для OpenStreetMap и ожидаемый адрес.
- */
 async function predictOsmHotelData(hotelName, city, url = '') {
     const systemMessage = `Ты — эксперт по картографии и OpenStreetMap (OSM).
 Твоя задача — проанализировать "грязное" название отеля, город и URL, и предсказать, под каким именно именем этот отель МОЖЕТ быть записан в базе OpenStreetMap (тег name).
@@ -251,4 +359,10 @@ URL: "${url}"
     }
 }
 
-module.exports = { generateScript, extractCleanHotelName, predictOsmHotelData, buildFallbackScript };
+module.exports = {
+    generateScript,
+    selectRelevantPlaces,
+    extractCleanHotelName,
+    predictOsmHotelData,
+    buildFallbackScript
+};

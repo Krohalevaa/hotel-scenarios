@@ -18,12 +18,36 @@ function ensureSupabaseConfigured() {
 function normalizeAttraction(attraction) {
     if (typeof attraction === 'string') {
         return {
-            attraction_name: attraction
+            attraction_name: attraction,
+            category: 'entertainment',
+            categories: ['entertainment'],
+            latitude: null,
+            longitude: null,
+            address: null,
+            source: 'legacy',
+            radius_meters: null,
+            osm_type: null,
+            osm_id: null,
+            tags: {}
         };
     }
 
+    const categories = Array.isArray(attraction?.categories) && attraction.categories.length
+        ? attraction.categories
+        : [attraction?.category || 'entertainment'];
+
     return {
-        attraction_name: attraction?.name || attraction?.attraction_name || 'Unknown attraction'
+        attraction_name: attraction?.name || attraction?.attraction_name || 'Unknown attraction',
+        category: attraction?.category || categories[0] || 'entertainment',
+        categories,
+        latitude: attraction?.latitude ?? null,
+        longitude: attraction?.longitude ?? null,
+        address: attraction?.address || null,
+        source: attraction?.source || 'overpass',
+        radius_meters: attraction?.radius_meters ?? null,
+        osm_type: attraction?.osm_type || null,
+        osm_id: attraction?.osm_id ?? null,
+        tags: attraction?.tags || {}
     };
 }
 
@@ -38,6 +62,17 @@ function normalizeKeyFeatures(features) {
         .slice(0, 5);
 }
 
+function normalizeStringArray(values, limit = 20) {
+    if (!Array.isArray(values)) {
+        return [];
+    }
+
+    return values
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, limit);
+}
+
 async function saveScript(scriptData) {
     ensureSupabaseConfigured();
 
@@ -47,10 +82,12 @@ async function saveScript(scriptData) {
         contact_email: scriptData.contact_email || null,
         hotel_url: scriptData.hotel_url || scriptData.hotel_website_url || null,
         business_goal: scriptData.business_goal || null,
+        guest_preference: scriptData.guest_preference || null,
         city: scriptData.city || null,
         language: scriptData.language || 'Russian',
         status: scriptData.status || 'new',
         hotel_name: scriptData.hotel_name || null,
+        selected_place_categories: normalizeStringArray(scriptData.selected_place_categories, 10),
         final_script: scriptData.final_script || null
     };
 
@@ -81,6 +118,11 @@ async function saveAttractions(scenarioId, hotelName, attractions) {
     if (!scenarioId || !Array.isArray(attractions) || attractions.length === 0) {
         return [];
     }
+
+    await supabase
+        .from('hotel_attractions')
+        .delete()
+        .eq('scenario_id', scenarioId);
 
     const rows = attractions.map((attraction) => ({
         scenario_id: scenarioId,
@@ -119,7 +161,11 @@ async function saveHotelSourceData(sourceData) {
         latitude: sourceData.latitude ?? sourceData.geo_lat ?? null,
         longitude: sourceData.longitude ?? sourceData.geo_lon ?? null,
         attractions_found: Boolean(sourceData.attractions_found),
-        key_features: normalizeKeyFeatures(sourceData.key_features)
+        key_features: normalizeKeyFeatures(sourceData.key_features),
+        attraction_count: Number(sourceData.attraction_count || 0),
+        selected_attraction_count: Number(sourceData.selected_attraction_count || 0),
+        search_radius_meters: Number(sourceData.search_radius_meters || 0),
+        selected_place_categories: normalizeStringArray(sourceData.selected_place_categories, 10)
     };
 
     const { data, error } = await supabase

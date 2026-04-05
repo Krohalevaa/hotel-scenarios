@@ -666,13 +666,7 @@
         }
 
         function normalizeScriptText(value) {
-            const text = String(value || '').trim();
-            if (!text) {
-                return '';
-            }
-
-            const lines = text.split(/\r?\n/).map((line) => line.trim());
-            return lines.join('\n').trim();
+            return String(value || '').trim();
         }
 
         function renderList(target, items, emptyText) {
@@ -710,11 +704,15 @@
                 return selectedAttractions;
             }
 
-            const fallbackAttractions = Array.isArray(item.hotel_attractions)
-                ? item.hotel_attractions.map((entry) => entry.attraction_name).filter(Boolean)
-                : [];
+            const attractionCategories = discoveredAttractions?.attraction_categories;
+            if (attractionCategories && typeof attractionCategories === 'object') {
+                return Object.values(attractionCategories)
+                    .flat()
+                    .map((entry) => typeof entry === 'string' ? entry : entry?.attraction_name || entry?.name)
+                    .filter(Boolean);
+            }
 
-            return fallbackAttractions;
+            return [];
         }
 
         function openScriptModal(item) {
@@ -837,6 +835,25 @@
             }
         }
 
+        async function parseJsonResponse(response) {
+            const contentType = response.headers.get('content-type') || '';
+            const text = await response.text();
+
+            if (!text) {
+                return {};
+            }
+
+            if (!contentType.includes('application/json')) {
+                throw new Error(`Expected JSON response, received ${contentType || 'unknown content type'}: ${text.slice(0, 120)}`);
+            }
+
+            try {
+                return JSON.parse(text);
+            } catch (error) {
+                throw new Error(`Invalid JSON response: ${text.slice(0, 120)}`);
+            }
+        }
+
         async function api(path, options = {}) {
             const response = await fetch(path, {
                 ...options,
@@ -846,7 +863,7 @@
                 }
             });
 
-            const payload = await response.json();
+            const payload = await parseJsonResponse(response);
             if (!response.ok) {
                 throw new Error(payload.error || 'Request failed');
             }
@@ -855,14 +872,14 @@
 
         async function loadProfile() {
             const profileResponse = await api('/api/me/profile');
-            currentProfile = profileResponse.data;
+            currentProfile = profileResponse.data || {};
             const fullName = [currentProfile.first_name, currentProfile.last_name].filter(Boolean).join(' ').trim();
             headerName.innerHTML = `<strong>${fullName || 'User'}</strong>`;
-            headerEmail.textContent = currentProfile.email || '';
+            headerEmail.textContent = currentProfile.email || currentSession?.user?.email || '';
             firstNameInput.value = currentProfile.first_name || '';
             lastNameInput.value = currentProfile.last_name || '';
-            profileEmailInput.value = currentProfile.email || '';
-            contactEmailInput.value = currentProfile.email || '';
+            profileEmailInput.value = currentProfile.email || currentSession?.user?.email || '';
+            contactEmailInput.value = currentProfile.email || currentSession?.user?.email || '';
             setAvatar(currentProfile.avatar_url || null);
         }
 

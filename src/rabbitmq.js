@@ -25,7 +25,7 @@ function enqueueFallbackJob(data, reason) {
         reason,
         queuedAt: new Date().toISOString()
     });
-    logger.debug(`Запрос добавлен в очередь обработки: ${data?.hotel_name || data?.hotel_website_url || 'unknown'}`);
+    logger.debug(`Request added to the processing queue: ${data?.hotel_name || data?.hotel_website_url || 'unknown'}`);
 }
 
 function takeFallbackJob() {
@@ -45,13 +45,13 @@ async function declareQueue() {
             },
             timeout: 15000
         });
-        logger.debug('Очередь обработки готова');
+        logger.debug('Processing queue is ready');
     } catch (err) {
         if (err.response?.status !== 204) {
             logger.error(`Queue declare error: ${stringifyErrorPayload(err.response?.data || err.message)}`);
             throw err;
         }
-        logger.debug('Очередь обработки уже существует');
+        logger.debug('Processing queue already exists');
     }
 }
 
@@ -60,7 +60,7 @@ async function declareQueue() {
  * Mirrors n8n node "RabbitMQ: Publish"
  */
 async function publishToQueue(data) {
-    logger.info(`Передаём запрос в обработку: ${data?.hotel_name || data?.hotel_website_url || 'unknown'}`);
+    logger.info(`Sending request for processing: ${data?.hotel_name || data?.hotel_website_url || 'unknown'}`);
 
     try {
         await declareQueue();
@@ -73,7 +73,7 @@ async function publishToQueue(data) {
             payload_encoding: 'string'
         };
 
-        logger.debug('Публикуем запрос в очередь');
+        logger.debug('Publishing request to queue');
 
         const response = await axios.post(url, body, {
             headers: {
@@ -83,13 +83,13 @@ async function publishToQueue(data) {
             timeout: 15000
         });
 
-        logger.debug(`Запрос принят очередью: status=${response.status}, routed=${response.data?.routed}`);
+        logger.debug(`Request accepted by queue: status=${response.status}, routed=${response.data?.routed}`);
 
         if (response.data?.routed !== true) {
             throw new Error(`RabbitMQ publish was accepted but not routed. Response: ${stringifyErrorPayload(response.data)}`);
         }
 
-        logger.warn(`RabbitMQ publish succeeded, но для надёжности запускаем локальную обработку без ожидания чтения из очереди: ${data.hotel_name || data.hotel_website_url || 'unknown'}`);
+        logger.warn(`RabbitMQ publish succeeded, but for reliability we are also starting local processing without waiting for queue consumption: ${data.hotel_name || data.hotel_website_url || 'unknown'}`);
         enqueueFallbackJob(data, DIRECT_PROCESSING_REASON);
 
         return {
@@ -99,7 +99,7 @@ async function publishToQueue(data) {
     } catch (err) {
         const reason = `publish_error:${stringifyErrorPayload(err.response?.data || err.message)}`;
         enqueueFallbackJob(data, reason);
-        logger.warn(`Не удалось надёжно использовать RabbitMQ, обработаем напрямую: ${stringifyErrorPayload(err.response?.data || err.message)}`);
+        logger.warn(`RabbitMQ could not be used reliably, processing directly instead: ${stringifyErrorPayload(err.response?.data || err.message)}`);
         return {
             queued: false,
             fallbackQueued: true,
@@ -142,15 +142,15 @@ async function getOneMessage() {
 
             const payload = messages[0]?.payload;
             if (!payload) {
-                logger.warn('Получен пустой запрос из очереди');
+                logger.warn('Received an empty request from the queue');
                 return null;
             }
 
             const parsed = JSON.parse(payload);
-            logger.debug(`Получен запрос на обработку: ${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}`);
+            logger.debug(`Received request for processing: ${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}`);
             return parsed;
         } catch (err) {
-            logger.debug(`Ошибка чтения очереди, повторим позже: ${stringifyErrorPayload(err.response?.data || err.message)}`);
+            logger.debug(`Queue read failed, will retry later: ${stringifyErrorPayload(err.response?.data || err.message)}`);
         }
     }
 
@@ -159,32 +159,32 @@ async function getOneMessage() {
 
 /**
  * Poll the queue every N seconds and call callback for each message.
- * Mirrors n8n node "Polling Interval (30s)"
+ * Mirrors n8n node "Polling Interval (5s)"
  */
-function consumeFromQueue(callback, intervalMs = 30000) {
-    logger.debug(`Проверяем новые запросы каждые ${intervalMs / 1000} сек`);
+function consumeFromQueue(callback, intervalMs = 5000) {
+    logger.debug(`Checking for new requests every ${intervalMs / 1000} sec`);
 
     async function poll() {
         const ts = new Date().toISOString();
         try {
-            logger.debug(`[${ts}] Проверяем очередь`);
+            logger.debug(`[${ts}] Checking queue`);
             const data = await getOneMessage();
             const fallbackJob = !data ? takeFallbackJob() : null;
             const job = data || fallbackJob?.data || null;
             const source = data ? 'rabbitmq' : (fallbackJob ? `fallback:${fallbackJob.reason}` : 'none');
-            logger.debug(`[${ts}] Результат проверки: job=${Boolean(job)}, source=${source}`);
+            logger.debug(`[${ts}] Poll result: job=${Boolean(job)}, source=${source}`);
 
             if (job) {
-                logger.debug(`[${ts}] Начинаем обработку: ${job.hotel_name || job.hotel_website_url}, source=${source}`);
+                logger.debug(`[${ts}] Starting processing: ${job.hotel_name || job.hotel_website_url}, source=${source}`);
 
                 await callback(job);
                 setTimeout(poll, 100);
             } else {
-                logger.debug(`[${ts}] Новых запросов нет`);
+                logger.debug(`[${ts}] No new requests`);
                 setTimeout(poll, intervalMs);
             }
         } catch (err) {
-            logger.warn(`[${ts}] Не удалось проверить очередь: ${err.message}`);
+            logger.warn(`[${ts}] Failed to check queue: ${err.message}`);
             setTimeout(poll, intervalMs);
         }
     }

@@ -11,6 +11,7 @@ create extension if not exists pgcrypto;
 -- Optional cleanup of old application tables.
 -- Uncomment if you want to remove the previous schema first.
 -- drop table if exists hotel_attractions cascade;
+-- drop table if exists scenario_attractions cascade;
 -- drop table if exists video_scripts cascade;
 -- drop table if exists profiles cascade;
 

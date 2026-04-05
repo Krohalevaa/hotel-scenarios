@@ -288,19 +288,24 @@ function buildTagQuery(elementType, tagKey, tagValue, radius, lat, lon) {
     return `${elementType}["${escapedKey}"="${escapedValue}"](around:${radius},${lat},${lon});`;
 }
 
-function buildPublicPlacesQuery(radius, lat, lon) {
+function buildPublicPlacesQuery(radius, lat, lon, categories = getAllCategoryKeys()) {
     const queryParts = [];
+    const categoryKeys = Array.isArray(categories) && categories.length
+        ? categories.filter((category) => PLACE_CATEGORY_DEFINITIONS[category])
+        : getAllCategoryKeys();
 
-    for (const definition of Object.values(PLACE_CATEGORY_DEFINITIONS)) {
+    for (const categoryKey of categoryKeys) {
+        const definition = PLACE_CATEGORY_DEFINITIONS[categoryKey];
         for (const [tagKey, tagValues] of Object.entries(definition.osm || {})) {
             for (const tagValue of tagValues) {
                 queryParts.push(buildTagQuery('node', tagKey, tagValue, radius, lat, lon));
                 queryParts.push(buildTagQuery('way', tagKey, tagValue, radius, lat, lon));
+                queryParts.push(buildTagQuery('relation', tagKey, tagValue, radius, lat, lon));
             }
         }
     }
 
-    return `[out:json][timeout:90];(${queryParts.join('\n')});out center tags;`;
+    return `[out:json][timeout:25];(${queryParts.join('\n')});out center tags qt;`;
 }
 
 function inferCategoriesFromTags(tags = {}) {
@@ -398,29 +403,69 @@ async function searchPublicPlaces(lat, lon, options = {}) {
     if (!lat || !lon) return [];
 
     const radius = Number(options.radius || DEFAULT_RADIUS_METERS);
-    logger.info(`Searching public places @ [${lat}, ${lon}] within ${radius}m...`);
+    const categories = Array.isArray(options.categories) && options.categories.length
+        ? options.categories.filter((category) => PLACE_CATEGORY_DEFINITIONS[category])
+        : getAllCategoryKeys();
+    const chunkSize = Number(options.chunkSize || 3);
 
-    const query = buildPublicPlacesQuery(radius, lat, lon);
+    logger.info(`Searching public places @ [${lat}, ${lon}] within ${radius}m for categories: ${categories.join(', ')}...`);
 
-    try {
-        const response = await fetchWithRetry(() => axios.post('https://overpass-api.de/api/interpreter', query, {
-            headers: { 'Content-Type': 'text/plain' },
-            timeout: 45000
-        }));
-
-        const elements = response.data.elements || [];
-        const places = dedupePlaces(
-            elements
-                .map((element) => buildPlaceRecord(element, radius))
-                .filter(Boolean)
-        );
-
-        logger.info(`Found ${places.length} public places in radius ${radius}m.`);
-        return places;
-    } catch (err) {
-        logger.error(`Public places search failed: ${err.message}`);
-        return [];
+    const categoryChunks = [];
+    for (let index = 0; index < categories.length; index += chunkSize) {
+        categoryChunks.push(categories.slice(index, index + chunkSize));
     }
+
+    const collectedPlaces = [];
+
+    for (const categoryChunk of categoryChunks) {
+        const query = buildPublicPlacesQuery(radius, lat, lon, categoryChunk);
+
+        try {
+            const response = await fetchWithRetry(() => axios.post('https://overpass-api.de/api/interpreter', query, {
+                headers: { 'Content-Type': 'text/plain' },
+                timeout: 30000
+            }));
+
+            const elements = response.data.elements || [];
+            const places = elements
+                .map((element) => buildPlaceRecord(element, radius))
+                .filter(Boolean);
+
+            logger.info(`Found ${places.length} public places for categories: ${categoryChunk.join(', ')}.`);
+            collectedPlaces.push(...places);
+        } catch (err) {
+            logger.error(`Public places search failed for categories ${categoryChunk.join(', ')}: ${err.message}`);
+
+            if (categoryChunk.length > 1) {
+                logger.warn(`Retrying public places search category-by-category for: ${categoryChunk.join(', ')}`);
+                for (const category of categoryChunk) {
+                    const fallbackPlaces = await searchPublicPlaces(lat, lon, {
+                        ...options,
+                        categories: [category],
+                        chunkSize: 1
+                    });
+                    collectedPlaces.push(...fallbackPlaces);
+                }
+                continue;
+            }
+
+            if (radius > 1500) {
+                const fallbackRadius = Math.max(1500, Math.round(radius / 2));
+                logger.warn(`Retrying public places search for ${categoryChunk[0]} with reduced radius: ${fallbackRadius}m`);
+                const fallbackPlaces = await searchPublicPlaces(lat, lon, {
+                    ...options,
+                    radius: fallbackRadius,
+                    categories: categoryChunk,
+                    chunkSize: 1
+                });
+                collectedPlaces.push(...fallbackPlaces);
+            }
+        }
+    }
+
+    const dedupedPlaces = dedupePlaces(collectedPlaces);
+    logger.info(`Found ${dedupedPlaces.length} public places in radius ${radius}m after merge.`);
+    return dedupedPlaces;
 }
 
 async function searchAttractions(lat, lon) {

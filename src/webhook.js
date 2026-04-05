@@ -49,7 +49,7 @@ async function processSingleHotel(hotelRequest) {
 
     let hotelData;
     try {
-        logger.info(`Получен сайт отеля: ${context.hotel_website_url}`);
+        logger.info(`Received hotel website: ${context.hotel_website_url}`);
         const rawData = await scrapeHotelWebsite(context.hotel_website_url);
         hotelData = extractHotelInfo(rawData, context);
         hotelData.user_id = context.user_id;
@@ -61,7 +61,7 @@ async function processSingleHotel(hotelRequest) {
         hotelData.country = context.country || hotelData.country || null;
         hotelData.hotel_website_url = context.hotel_website_url;
     } catch (e) {
-        logger.warn(`Не удалось прочитать сайт, продолжаем с минимальными данными: ${e.message}`);
+        logger.warn(`Failed to read website, continuing with minimal data: ${e.message}`);
         const domain = new URL(context.hotel_website_url).hostname.replace('www.', '');
         hotelData = {
             hotel_name: domain,
@@ -80,7 +80,7 @@ async function processSingleHotel(hotelRequest) {
     }
 
     await publishToQueue(hotelData);
-    logger.info(`Запрос поставлен в обработку: ${context.hotel_website_url}`);
+    logger.info(`Request queued for processing: ${context.hotel_website_url}`);
 }
 
 router.post('/generate-script', requireAuth, async (req, res) => {
@@ -90,7 +90,7 @@ router.post('/generate-script', requireAuth, async (req, res) => {
         contact_email: req.body.contact_email || req.user.email
     };
 
-    logger.info(`Новый запрос пользователя: ${payload.hotel_website_url}`);
+    logger.info(`New user request: ${payload.hotel_website_url}`);
 
     res.json({
         status: 'success',
@@ -98,7 +98,7 @@ router.post('/generate-script', requireAuth, async (req, res) => {
     });
 
     processSingleHotel(payload).catch((error) => {
-        logger.error(`Ошибка фоновой обработки: ${error.message}`);
+        logger.error(`Background processing error: ${error.message}`);
     });
 });
 
@@ -125,12 +125,12 @@ router.post('/api/public-generate-script', async (req, res) => {
             email: guestEmail
         });
         guestUserId = guestProfile.user_id;
-        logger.warn(`Гостевой профиль создан автоматически: ${guestEmail}`);
+        logger.warn(`Guest profile created automatically: ${guestEmail}`);
     }
 
     payload.user_id = guestUserId;
 
-    logger.info(`Новый гостевой запрос: ${payload.hotel_website_url}`);
+    logger.info(`New guest request: ${payload.hotel_website_url}`);
 
     res.json({
         status: 'success',
@@ -138,7 +138,7 @@ router.post('/api/public-generate-script', async (req, res) => {
     });
 
     processSingleHotel(payload).catch((error) => {
-        logger.error(`Ошибка фоновой обработки гостевого запроса: ${error.message}`);
+        logger.error(`Guest background processing error: ${error.message}`);
     });
 });
 
@@ -148,7 +148,7 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
         return res.status(400).json({ error: 'Expected an array of hotels.' });
     }
 
-    logger.info(`Получен пакет запросов: ${hotels.length}`);
+    logger.info(`Received request batch: ${hotels.length}`);
 
     res.json({ message: `Started processing ${hotels.length} hotels in batches. Check logs for progress.` });
 
@@ -156,7 +156,7 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
     (async () => {
         for (let i = 0; i < hotels.length; i += BATCH_SIZE) {
             const batch = hotels.slice(i, i + BATCH_SIZE);
-            logger.info(`Обрабатываем пакет ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} отелей`);
+            logger.info(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} hotels`);
 
             await Promise.allSettled(
                 batch.map(async (hotel) => {
@@ -167,7 +167,7 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
                             contact_email: hotel.contact_email || req.user.email
                         });
                     } catch (err) {
-                        logger.error(`Ошибка в одном из отелей пакета: ${err.message}`);
+                        logger.error(`Error in one of the batch hotels: ${err.message}`);
                     }
                 })
             );
@@ -177,6 +177,29 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
             }
         }
     })();
+});
+
+router.get('/api/me/profile', requireAuth, async (req, res) => {
+    try {
+        const profile = await db.getProfile(req.user.id);
+        res.json({
+            data: profile
+                ? {
+                    ...profile,
+                    full_name: [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
+                }
+                : {
+                    first_name: null,
+                    last_name: null,
+                    full_name: '',
+                    email: req.user.email,
+                    avatar_url: null
+                }
+        });
+    } catch (error) {
+        logger.error(`Failed to fetch profile: ${error.message}`);
+        res.status(500).json({ error: 'Failed to fetch profile.' });
+    }
 });
 
 router.get('/api/me/scripts', requireAuth, async (req, res) => {
@@ -224,55 +247,27 @@ router.put('/api/me/profile', requireAuth, async (req, res) => {
 
 router.post('/api/me/avatar', requireAuth, async (req, res) => {
     try {
-        const { avatar } = req.body;
-        if (!avatar) {
-            return res.status(400).json({ error: 'Avatar is required.' });
+        const { avatar_base64 } = req.body || {};
+        if (!avatar_base64) {
+            return res.status(400).json({ error: 'avatar_base64 is required.' });
         }
 
-        const { buffer, contentType } = parseBase64Image(avatar);
-        const upload = await db.uploadAvatar(req.user.id, buffer, contentType);
-        const existingProfile = await db.getProfile(req.user.id);
+        const image = parseBase64Image(avatar_base64);
+        const avatarUrl = await db.uploadAvatar(req.user.id, image.buffer, image.contentType);
         const profile = await db.upsertProfile(req.user.id, {
-            first_name: existingProfile?.first_name || req.user.user_metadata?.first_name || null,
-            last_name: existingProfile?.last_name || req.user.user_metadata?.last_name || null,
-            email: existingProfile?.email || req.user.email,
-            avatar_url: upload.publicUrl
+            email: req.user.email,
+            avatar_url: avatarUrl
         });
 
         res.json({
             data: {
-                ...upload,
-                avatar_url: profile?.avatar_url || upload.publicUrl,
-                full_name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
+                avatar_url: avatarUrl,
+                profile
             }
         });
     } catch (error) {
         logger.error(`Failed to upload avatar: ${error.message}`);
         res.status(500).json({ error: 'Failed to upload avatar.' });
-    }
-});
-
-router.get('/api/me/profile', requireAuth, async (req, res) => {
-    try {
-        const profile = await db.getProfile(req.user.id);
-        const firstName = profile?.first_name || req.user.user_metadata?.first_name || null;
-        const lastName = profile?.last_name || req.user.user_metadata?.last_name || null;
-
-        res.json({
-            data: {
-                user_id: req.user.id,
-                email: profile?.email || req.user.email,
-                first_name: firstName,
-                last_name: lastName,
-                full_name: [firstName, lastName].filter(Boolean).join(' ').trim(),
-                avatar_url: profile?.avatar_url || null,
-                created_at: profile?.created_at || null,
-                updated_at: profile?.updated_at || null
-            }
-        });
-    } catch (error) {
-        logger.error(`Failed to fetch profile: ${error.message}`);
-        res.status(500).json({ error: 'Failed to fetch profile.' });
     }
 });
 

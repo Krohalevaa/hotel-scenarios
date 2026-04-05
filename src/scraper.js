@@ -2,7 +2,7 @@ const axios = require('axios');
 const config = require('./config');
 const logger = require('./logger');
 
-// Хелпер для повторных попыток (Retry Pattern)
+// Helper for retry attempts (Retry Pattern)
 async function fetchWithRetry(requestFn, maxRetries = 2) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -43,7 +43,7 @@ async function scrapeHotelWebsite(url) {
         const response = await fetchWithRetry(() => axios.post(config.SCRAPER_API_URL, payload, {
             params: { token: 'supersecret' },
             headers: { 'Content-Type': 'application/json' },
-            timeout: 65000 // Чуть больше чем таймаут в payload
+            timeout: 65000 // Slightly longer than the timeout in the payload
         }));
 
         return response.data;
@@ -69,8 +69,8 @@ function extractHotelInfo(data, context) {
     }
 
     const result = {
-        hotel_name: 'Не найдено',
-        location: 'Не найдено',
+        hotel_name: 'Not found',
+        location: 'Not found',
         phone: '',
         email: '',
         description: '',
@@ -94,8 +94,8 @@ function extractHotelInfo(data, context) {
         const texts = item.results.map(r => cleanText(r.text)).filter(Boolean);
 
         if (sel.includes('title') || sel.includes('name') || sel.includes('hotel-title') || sel.includes('headline')) {
-            if (!result.hotel_name || result.hotel_name === 'Не найдено') {
-                result.hotel_name = texts[0]?.replace(/\|.*$/, '').replace(/Official Website/i, '').trim() || 'Не найдено';
+            if (!result.hotel_name || result.hotel_name === 'Not found') {
+                result.hotel_name = texts[0]?.replace(/\|.*$/, '').replace(/Official Website/i, '').trim() || 'Not found';
             }
         }
 

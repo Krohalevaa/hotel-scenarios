@@ -66,6 +66,24 @@ function formatPlaceForPrompt(place) {
     return `${place?.name || 'Unknown place'} [categories: ${categories}]${place?.address ? `, address: ${place.address}` : ''}`;
 }
 
+function normalizeDiscoveredAttractions(discoveredAttractions) {
+    if (!Array.isArray(discoveredAttractions) || discoveredAttractions.length === 0) {
+        return [];
+    }
+
+    const latestRecord = discoveredAttractions[0] || {};
+    const attractionCategories = latestRecord.attraction_categories;
+    if (!attractionCategories || typeof attractionCategories !== 'object' || Array.isArray(attractionCategories)) {
+        return [];
+    }
+
+    return Object.entries(attractionCategories).map(([name, category]) => ({
+        name,
+        category: String(category || 'unknown'),
+        categories: [String(category || 'unknown')]
+    }));
+}
+
 function buildFallbackScript(hotelData) {
     const hotelName = hotelData.hotel_name || 'the hotel';
     const city = hotelData.city || 'the city';
@@ -89,7 +107,7 @@ function buildFallbackScript(hotelData) {
 }
 
 async function selectRelevantPlaces(hotelData) {
-    const allPlaces = Array.isArray(hotelData.all_nearby_places) ? hotelData.all_nearby_places : [];
+    const allPlaces = normalizeDiscoveredAttractions(hotelData.discovered_attractions);
     if (allPlaces.length === 0) {
         return {
             selectedCategories: [],

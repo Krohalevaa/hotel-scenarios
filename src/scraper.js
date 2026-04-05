@@ -79,6 +79,7 @@ function extractHotelInfo(data, context) {
         photos: [],
         other_headings: [],
         city: context.city,
+        country: context.country || null,
         business_goal: context.business_goal,
         guest_preference: context.guest_preference || '',
         contact_email: context.contact_email,

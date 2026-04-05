@@ -82,6 +82,7 @@ async function publishToQueue(data) {
         });
 
         logger.info(`RabbitMQ publish response: status=${response.status}, routed=${response.data?.routed}, vhost=${VHOST}, queue=${QUEUE_NAME}`);
+        logger.debug(`RabbitMQ publish payload snapshot: hotel="${data?.hotel_name || data?.hotel_website_url || 'unknown'}", payloadBytes=${Buffer.byteLength(body.payload, 'utf8')}, authConfigured=${Boolean(config.RABBITMQ_AUTH_BASE64)}`);
 
         if (response.data?.routed !== true) {
             const reason = `publish_not_routed:${stringifyErrorPayload(response.data)}`;
@@ -89,13 +90,10 @@ async function publishToQueue(data) {
             throw new Error(`RabbitMQ publish was accepted but not routed. Response: ${stringifyErrorPayload(response.data)}`);
         }
 
-        logger.warn(`RabbitMQ HTTP publish reported success, but HTTP API polling does not return the message. Processing job via in-process fallback to avoid data loss.`);
-        enqueueFallbackJob(data, 'http_api_publish_without_readback');
-
-        logger.info(`Published to RabbitMQ: ${data.hotel_name}`);
+        logger.info(`Published to RabbitMQ: ${data.hotel_name || data.hotel_website_url || 'unknown'}`);
         return {
             queued: true,
-            fallbackQueued: true
+            fallbackQueued: false
         };
     } catch (err) {
         const reason = `publish_error:${stringifyErrorPayload(err.response?.data || err.message)}`;
@@ -134,7 +132,8 @@ async function getOneMessage() {
             });
 
             const messages = Array.isArray(response.data) ? response.data : [];
-            logger.debug(`RabbitMQ get response: status=${response.status}, messages=${messages.length}, vhost=${VHOST}, queue=${QUEUE_NAME}, attempt=${attempt + 1}`);
+            const firstMessage = messages[0] || null;
+            logger.debug(`RabbitMQ get response: status=${response.status}, messages=${messages.length}, vhost=${VHOST}, queue=${QUEUE_NAME}, attempt=${attempt + 1}, firstRoutingKey=${firstMessage?.routing_key || 'n/a'}, firstPayloadBytes=${firstMessage?.payload ? Buffer.byteLength(String(firstMessage.payload), 'utf8') : 0}`);
 
             if (messages.length === 0) {
                 continue;
@@ -148,6 +147,7 @@ async function getOneMessage() {
 
             const parsed = JSON.parse(payload);
             logger.info(`RabbitMQ delivered message for hotel="${parsed?.hotel_name || parsed?.hotel_website_url || 'unknown'}"`);
+            logger.debug(`RabbitMQ delivered payload fields: keys=${Object.keys(parsed || {}).sort().join(',')}, hasUser=${Boolean(parsed?.user_id)}, hasEmail=${Boolean(parsed?.contact_email)}, hasGoal=${Boolean(parsed?.business_goal)}, hasCity=${Boolean(parsed?.city)}`);
             return parsed;
         } catch (err) {
             logger.error(`RabbitMQ get error on attempt ${attempt + 1}: ${stringifyErrorPayload(err.response?.data || err.message)}`);
@@ -169,10 +169,11 @@ function consumeFromQueue(callback, intervalMs = 30000) {
         const ts = new Date().toISOString();
         try {
             logger.info(`[${ts}] Polling queue...`);
+            logger.debug(`[${ts}] Poll pre-state: pendingFallback=${pendingFallbackJobs.length}`);
             const data = await getOneMessage();
             const fallbackJob = !data ? takeFallbackJob() : null;
             const job = data || fallbackJob?.data || null;
-            logger.debug(`[${ts}] Poll result: rabbitMessage=${Boolean(data)}, fallbackJob=${Boolean(fallbackJob)}, pendingFallback=${pendingFallbackJobs.length}`);
+            logger.debug(`[${ts}] Poll result: rabbitMessage=${Boolean(data)}, fallbackJob=${Boolean(fallbackJob)}, pendingFallback=${pendingFallbackJobs.length}, jobHotel="${job?.hotel_name || job?.hotel_website_url || 'n/a'}"`);
 
             if (job) {
                 if (fallbackJob) {

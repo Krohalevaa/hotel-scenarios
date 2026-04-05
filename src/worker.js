@@ -37,7 +37,8 @@ async function processHotelData(hotelData) {
             business_goal: hotelData.business_goal,
             guest_preference: hotelData.guest_preference || null,
             city: hotelData.city,
-            language: hotelData.language || 'Russian',
+            country: hotelData.country || null,
+            language: hotelData.language || 'English',
             status: 'processing',
             hotel_name: hotelData.hotel_name || null,
             selected_place_categories: []
@@ -67,7 +68,8 @@ async function processHotelData(hotelData) {
             business_goal: hotelData.business_goal,
             guest_preference: hotelData.guest_preference || null,
             city: hotelData.city,
-            language: hotelData.language || 'Russian',
+            country: hotelData.country || null,
+            language: hotelData.language || 'English',
             status: 'processing',
             hotel_name: canonicalName,
             selected_place_categories: []
@@ -83,6 +85,7 @@ async function processHotelData(hotelData) {
         hotelData.geo_lat = geoResult.geo_lat;
         hotelData.geo_lon = geoResult.geo_lon;
         hotelData.address = geoResult.address;
+        hotelData.country = hotelData.country || null;
         hotelData._geo_debug = geoResult._geo_debug_name;
 
         logger.info(`Geocoding finished. Result: ${hotelData._geo_debug} [${hotelData.geo_lat}, ${hotelData.geo_lon}]`);
@@ -99,12 +102,32 @@ async function processHotelData(hotelData) {
             });
             logger.info(`Found ${allNearbyPlaces.length} public places.`);
 
-            hotelData.all_nearby_places = allNearbyPlaces;
+            logger.info('Saving discovered attractions to Supabase...');
+            const initialDiscoveredAttractionsRecord = await db.saveDiscoveredAttractions(
+                scenarioId,
+                hotelData.hotel_name,
+                hotelData.city,
+                hotelData.country || null,
+                allNearbyPlaces
+            );
+
+            hotelData.discovered_attractions = initialDiscoveredAttractionsRecord ? [initialDiscoveredAttractionsRecord] : [];
 
             logger.info('Step 3: AI agent is selecting preference-matching places...');
             const placeSelection = await ai.selectRelevantPlaces(hotelData);
             selectedCategories = placeSelection.selectedCategories || [];
             recommendedPlaces = placeSelection.recommendedPlaces || [];
+
+            const discoveredAttractionsRecord = await db.saveDiscoveredAttractions(
+                scenarioId,
+                hotelData.hotel_name,
+                hotelData.city,
+                hotelData.country || null,
+                allNearbyPlaces,
+                recommendedPlaces
+            );
+
+            hotelData.discovered_attractions = discoveredAttractionsRecord ? [discoveredAttractionsRecord] : [];
 
             hotelData.selected_place_categories = selectedCategories;
             hotelData.recommended_places = recommendedPlaces;
@@ -118,16 +141,13 @@ async function processHotelData(hotelData) {
                 business_goal: hotelData.business_goal,
                 guest_preference: hotelData.guest_preference || null,
                 city: hotelData.city,
-                language: hotelData.language || 'Russian',
+                country: hotelData.country || null,
+                language: hotelData.language || 'English',
                 status: 'processing',
                 hotel_name: canonicalName,
                 selected_place_categories: selectedCategories
             });
 
-            if (allNearbyPlaces.length > 0) {
-                logger.info('Saving public places to Supabase...');
-                await db.saveAttractions(scenarioId, hotelData.hotel_name, allNearbyPlaces);
-            }
         }
 
         await db.saveHotelSourceData({

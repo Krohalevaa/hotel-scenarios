@@ -428,8 +428,12 @@
           <input id="guestCity" type="text" placeholder="Dubai" required>
         </div>
         <div>
+          <label for="guestCountry">Country</label>
+          <input id="guestCountry" type="text" placeholder="United Arab Emirates">
+        </div>
+        <div>
           <label for="guestPreference">Guest preference</label>
-          <input id="guestPreference" type="text" placeholder="Family отдых, adults only, honeymoon">
+          <input id="guestPreference" type="text" placeholder="Family vacation, adults only, honeymoon trip">
         </div>
         <div>
           <label for="guestEmail">Email for delivery</label>
@@ -562,6 +566,7 @@
           hotel_website_url: document.getElementById('guestHotelUrl').value.trim(),
           business_goal: document.getElementById('guestBusinessGoal').value.trim(),
           city: document.getElementById('guestCity').value.trim(),
+          country: document.getElementById('guestCountry').value.trim(),
           guest_preference: document.getElementById('guestPreference').value.trim(),
           contact_email: document.getElementById('guestEmail').value.trim(),
           language: document.getElementById('guestLanguage').value.trim() || 'English'

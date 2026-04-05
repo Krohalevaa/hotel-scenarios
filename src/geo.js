@@ -125,6 +125,7 @@ async function getCityCoordinates(city) {
     }
 }
 
+
 async function searchHotelInRadius(name, cityLat, cityLon, radius = 20000, website = '') {
     if ((!name || name.length < 3) && !website) {
         logger.warn(`Search parameters too weak: name="${name}", website="${website}"`);
@@ -215,7 +216,7 @@ async function getGeoCoordinates(hotelName, city, hotelWebsite = '', osmPredicti
     const cityCoords = await getCityCoordinates(city);
     if (!cityCoords) {
         logger.error(`Geocoding aborted for "${hotelName}": city coords missing.`);
-        return { geo_lat: null, geo_lon: null, address: null, _geo_debug_name: null };
+        return { geo_lat: null, geo_lon: null, address: null, country: null, _geo_debug_name: null };
     }
 
     const strategies = [
@@ -252,6 +253,7 @@ async function getGeoCoordinates(hotelName, city, hotelWebsite = '', osmPredicti
                         geo_lat: parseFloat(result.lat),
                         geo_lon: parseFloat(result.lon),
                         address: result.address || result.name,
+                        country: null,
                         _geo_debug_name: `${result.name || hotelName} (${strategy.name})`
                     };
                 }
@@ -267,6 +269,7 @@ async function getGeoCoordinates(hotelName, city, hotelWebsite = '', osmPredicti
         geo_lat: parseFloat(cityCoords.lat),
         geo_lon: parseFloat(cityCoords.lon),
         address: city,
+        country: null,
         _geo_debug_name: `${city} Center (Final Fallback)`
     };
 }

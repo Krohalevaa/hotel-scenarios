@@ -20,15 +20,7 @@ function normalizeAttraction(attraction) {
         return {
             attraction_name: attraction,
             category: 'entertainment',
-            categories: ['entertainment'],
-            latitude: null,
-            longitude: null,
-            address: null,
-            source: 'legacy',
-            radius_meters: null,
-            osm_type: null,
-            osm_id: null,
-            tags: {}
+            categories: ['entertainment']
         };
     }
 
@@ -39,15 +31,7 @@ function normalizeAttraction(attraction) {
     return {
         attraction_name: attraction?.name || attraction?.attraction_name || 'Unknown attraction',
         category: attraction?.category || categories[0] || 'entertainment',
-        categories,
-        latitude: attraction?.latitude ?? null,
-        longitude: attraction?.longitude ?? null,
-        address: attraction?.address || null,
-        source: attraction?.source || 'overpass',
-        radius_meters: attraction?.radius_meters ?? null,
-        osm_type: attraction?.osm_type || null,
-        osm_id: attraction?.osm_id ?? null,
-        tags: attraction?.tags || {}
+        categories
     };
 }
 
@@ -60,6 +44,33 @@ function normalizeKeyFeatures(features) {
         .map((item) => String(item || '').trim())
         .filter(Boolean)
         .slice(0, 5);
+}
+
+function buildAttractionCategoryMap(attractions) {
+    if (!Array.isArray(attractions) || attractions.length === 0) {
+        return {};
+    }
+
+    return attractions.reduce((acc, attraction) => {
+        const normalized = normalizeAttraction(attraction);
+        if (!normalized.attraction_name) {
+            return acc;
+        }
+
+        acc[normalized.attraction_name] = normalized.category;
+        return acc;
+    }, {});
+}
+
+function buildSelectedAttractionsList(attractions) {
+    if (!Array.isArray(attractions) || attractions.length === 0) {
+        return [];
+    }
+
+    return attractions
+        .map((attraction) => normalizeAttraction(attraction).attraction_name)
+        .filter(Boolean)
+        .slice(0, 12);
 }
 
 function normalizeStringArray(values, limit = 20) {
@@ -84,7 +95,8 @@ async function saveScript(scriptData) {
         business_goal: scriptData.business_goal || null,
         guest_preference: scriptData.guest_preference || null,
         city: scriptData.city || null,
-        language: scriptData.language || 'Russian',
+        country: scriptData.country || null,
+        language: scriptData.language || 'English',
         status: scriptData.status || 'new',
         hotel_name: scriptData.hotel_name || null,
         selected_place_categories: normalizeStringArray(scriptData.selected_place_categories, 10),
@@ -112,36 +124,40 @@ async function saveScript(scriptData) {
     return data;
 }
 
-async function saveAttractions(scenarioId, hotelName, attractions) {
+async function saveDiscoveredAttractions(scenarioId, hotelName, city, country, attractions, selectedAttractions = []) {
     ensureSupabaseConfigured();
 
     if (!scenarioId || !Array.isArray(attractions) || attractions.length === 0) {
-        return [];
+        return null;
     }
 
     await supabase
-        .from('hotel_attractions')
+        .from('hotel_discovered_attractions')
         .delete()
         .eq('scenario_id', scenarioId);
 
-    const rows = attractions.map((attraction) => ({
+    const payload = {
         scenario_id: scenarioId,
         hotel_name: hotelName || null,
-        ...normalizeAttraction(attraction)
-    }));
+        city: city || null,
+        country: country || null,
+        attraction_categories: buildAttractionCategoryMap(attractions),
+        selected_attractions: buildSelectedAttractionsList(selectedAttractions)
+    };
 
     const { data, error } = await supabase
-        .from('hotel_attractions')
-        .insert(rows)
-        .select();
+        .from('hotel_discovered_attractions')
+        .insert(payload)
+        .select()
+        .single();
 
     if (error) {
-        logger.error(`Supabase saveAttractions error: ${error.message}`);
+        logger.error(`Supabase saveDiscoveredAttractions error: ${error.message}`);
         throw error;
     }
 
-    logger.info(`Saved ${rows.length} attractions for scenario ${scenarioId}.`);
-    return data || [];
+    logger.info(`Saved discovered attractions map for scenario ${scenarioId}.`);
+    return data;
 }
 
 async function saveHotelSourceData(sourceData) {
@@ -236,7 +252,7 @@ async function getUserScriptById(userId, scenarioId) {
 
     const { data, error } = await supabase
         .from('hotel_scenarios')
-        .select('*, hotel_attractions(*), hotel_source_data(*)')
+        .select('*, hotel_source_data(*), hotel_discovered_attractions(*)')
         .eq('user_id', userId)
         .eq('id', scenarioId)
         .single();
@@ -269,11 +285,22 @@ async function getProfile(userId) {
 async function upsertProfile(userId, profileData) {
     ensureSupabaseConfigured();
 
+    const normalizedUserId = String(userId || '').trim();
+    const normalizedEmail = String(profileData.email || '').trim();
+
+    if (!normalizedUserId) {
+        throw new Error('userId is required for upsertProfile.');
+    }
+
+    if (!normalizedEmail) {
+        throw new Error('email is required for upsertProfile.');
+    }
+
     const payload = {
-        user_id: userId,
+        user_id: normalizedUserId,
         first_name: profileData.first_name || null,
         last_name: profileData.last_name || null,
-        email: profileData.email,
+        email: normalizedEmail,
         avatar_url: profileData.avatar_url || null,
         updated_at: new Date().toISOString()
     };
@@ -366,7 +393,7 @@ async function uploadAvatar(userId, fileBuffer, contentType = 'image/jpeg') {
 
 module.exports = {
     saveScript,
-    saveAttractions,
+    saveDiscoveredAttractions,
     saveHotelSourceData,
     updateScriptStatus,
     getUserScripts,

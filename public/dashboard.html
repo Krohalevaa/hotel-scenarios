@@ -473,9 +473,13 @@
                                 <input id="city" type="text" placeholder="London" required>
                             </div>
                             <div>
+                                <label for="country">Country</label>
+                                <input id="country" type="text" placeholder="United Kingdom">
+                            </div>
+                            <div>
                                 <label for="guestPreference">Guest preference</label>
                                 <input id="guestPreference" type="text"
-                                    placeholder="Family отдых, adults only, honeymoon">
+                                    placeholder="Family vacation, adults only, honeymoon trip">
                             </div>
                             <div>
                                 <label for="contactEmail">Result email</label>
@@ -484,8 +488,8 @@
                             <div>
                                 <label for="language">Script language</label>
                                 <select id="language">
-                                    <option value="Russian">Russian</option>
                                     <option value="English">English</option>
+                                    <option value="Russian">Russian</option>
                                     <option value="Spanish">Spanish</option>
                                 </select>
                             </div>
@@ -499,9 +503,12 @@
                             <div>
                                 <label for="bulkJson">Hotels JSON array</label>
                                 <textarea id="bulkJson"
-                                    placeholder='[{"hotel_website_url":"https://hotel.com","city":"Paris","business_goal":"Increase direct bookings"}]'
+                                    placeholder='[{"hotel_website_url":"https://hotel.com","city":"Paris","country":"France","business_goal":"Increase direct bookings","guest_preference":"Family vacation, adults only, honeymoon trip"}]'
                                     required></textarea>
                             </div>
+                            <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">Each hotel object can
+                                include <code>country</code> and <code>guest_preference</code> in addition to the
+                                required fields.</p>
                             <button class="primary" type="submit">Start bulk generation</button>
                         </form>
                     </div>
@@ -899,6 +906,7 @@
                         hotel_website_url: document.getElementById('hotelUrl').value.trim(),
                         business_goal: document.getElementById('businessGoal').value.trim(),
                         city: document.getElementById('city').value.trim(),
+                        country: document.getElementById('country').value.trim(),
                         guest_preference: document.getElementById('guestPreference').value.trim(),
                         contact_email: document.getElementById('contactEmail').value.trim(),
                         language: document.getElementById('language').value

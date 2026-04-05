@@ -40,9 +40,10 @@ async function processSingleHotel(hotelRequest) {
         guest_preference: hotelRequest.guest_preference || '',
         contact_email: hotelRequest.contact_email,
         city: hotelRequest.city,
+        country: hotelRequest.country || null,
         hotel_context: '',
         status: 'new',
-        language: hotelRequest.language || 'Russian',
+        language: hotelRequest.language || 'English',
         user_id: hotelRequest.user_id
     };
 
@@ -57,6 +58,7 @@ async function processSingleHotel(hotelRequest) {
         hotelData.guest_preference = context.guest_preference;
         hotelData.city = context.city;
         hotelData.language = context.language;
+        hotelData.country = context.country || hotelData.country || null;
         hotelData.hotel_website_url = context.hotel_website_url;
     } catch (e) {
         logger.error(`Scraping failed for ${context.hotel_website_url}, using fallback: ${e.message}`);
@@ -70,6 +72,7 @@ async function processSingleHotel(hotelRequest) {
             business_goal: context.business_goal,
             guest_preference: context.guest_preference,
             language: context.language,
+            country: context.country || null,
             user_id: context.user_id,
             amenities: [],
             special_offers: []
@@ -89,7 +92,7 @@ router.post('/generate-script', requireAuth, async (req, res) => {
         contact_email: req.body.contact_email || req.user.email
     };
 
-    logger.info(`[generate-script] Accepted request: user=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'Russian'}`);
+    logger.info(`[generate-script] Accepted request: user=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'English'}`);
 
     res.json({
         status: 'success',
@@ -103,22 +106,34 @@ router.post('/generate-script', requireAuth, async (req, res) => {
 });
 
 router.post('/api/public-generate-script', async (req, res) => {
-    if (!config.GUEST_USER_ID) {
-        return res.status(500).json({ error: 'GUEST_USER_ID is not configured.' });
-    }
-
     const payload = {
         ...req.body,
-        user_id: config.GUEST_USER_ID,
         contact_email: req.body.contact_email,
-        language: req.body.language || 'English'
+        language: req.body.language || 'English',
+        country: req.body.country || null
     };
 
     if (!payload.hotel_website_url || !payload.business_goal || !payload.city || !payload.contact_email) {
         return res.status(400).json({ error: 'hotel_website_url, business_goal, city, and contact_email are required.' });
     }
 
-    logger.info(`[public-generate-script] Accepted guest request: guestUser=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'English'}`);
+    let guestUserId = config.GUEST_USER_ID;
+
+    if (!guestUserId) {
+        const guestEmail = config.GUEST_USER_EMAIL || payload.contact_email || 'guest@hotel-scenarios.local';
+        const guestName = guestEmail.split('@')[0] || 'Guest';
+        const guestProfile = await db.upsertProfile(guestEmail, {
+            first_name: guestName,
+            last_name: 'Guest',
+            email: guestEmail
+        });
+        guestUserId = guestProfile.user_id;
+        logger.warn(`[public-generate-script] GUEST_USER_ID is not configured. Using fallback guest profile ${guestUserId} (${guestEmail}).`);
+    }
+
+    payload.user_id = guestUserId;
+
+    logger.info(`[public-generate-script] Accepted guest request: guestUser=${payload.user_id}, hotelUrl=${payload.hotel_website_url}, city=${payload.city || 'n/a'}, country=${payload.country || 'n/a'}, email=${payload.contact_email || 'n/a'}, language=${payload.language || 'English'}`);
 
     res.json({
         status: 'success',

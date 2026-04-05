@@ -3,8 +3,8 @@
 -- Application tables are reduced to 4 core tables:
 -- 1) user_profiles
 -- 2) hotel_scenarios
--- 3) hotel_attractions
--- 4) hotel_source_data
+-- 3) hotel_source_data
+-- 4) hotel_discovered_attractions
 
 create extension if not exists pgcrypto;
 
@@ -35,6 +35,7 @@ create table if not exists public.hotel_scenarios (
     business_goal text,
     guest_preference text,
     city text,
+    country text,
     language text not null default 'Russian',
     status text not null default 'new',
     hotel_name text,
@@ -48,45 +49,8 @@ create table if not exists public.hotel_scenarios (
 
 create index if not exists idx_hotel_scenarios_user_id on public.hotel_scenarios(user_id);
 create index if not exists idx_hotel_scenarios_status on public.hotel_scenarios(status);
+create index if not exists idx_hotel_scenarios_country on public.hotel_scenarios(country);
 create index if not exists idx_hotel_scenarios_created_at on public.hotel_scenarios(created_at desc);
-
-create table if not exists public.hotel_attractions (
-    id bigserial primary key,
-    scenario_id uuid not null references public.hotel_scenarios(id) on delete cascade,
-    hotel_name text,
-    attraction_name text not null,
-    category text not null,
-    categories jsonb not null default '[]'::jsonb,
-    latitude double precision,
-    longitude double precision,
-    address text,
-    source text,
-    radius_meters integer,
-    osm_type text,
-    osm_id bigint,
-    tags jsonb not null default '{}'::jsonb,
-    created_at timestamptz not null default now(),
-    constraint hotel_attractions_category_check check (
-        category in (
-            'sports',
-            'children',
-            'honeymoon',
-            'culture',
-            'history',
-            'nature',
-            'shopping',
-            'food',
-            'entertainment',
-            'nightlife',
-            'wellness'
-        )
-    ),
-    constraint hotel_attractions_categories_check check (jsonb_typeof(categories) = 'array'),
-    constraint hotel_attractions_tags_check check (jsonb_typeof(tags) = 'object')
-);
-
-create index if not exists idx_hotel_attractions_scenario_id on public.hotel_attractions(scenario_id);
-create index if not exists idx_hotel_attractions_category on public.hotel_attractions(category);
 
 create table if not exists public.hotel_source_data (
     id bigserial primary key,
@@ -115,6 +79,22 @@ create table if not exists public.hotel_source_data (
 
 create index if not exists idx_hotel_source_data_city on public.hotel_source_data(city);
 create index if not exists idx_hotel_source_data_country on public.hotel_source_data(country);
+
+create table if not exists public.hotel_discovered_attractions (
+    id bigserial primary key,
+    scenario_id uuid not null references public.hotel_scenarios(id) on delete cascade,
+    hotel_name text,
+    city text,
+    country text,
+    attraction_categories jsonb not null default '{}'::jsonb,
+    selected_attractions jsonb not null default '[]'::jsonb,
+    created_at timestamptz not null default now(),
+    constraint hotel_discovered_attractions_categories_check check (jsonb_typeof(attraction_categories) = 'object'),
+    constraint hotel_discovered_attractions_selected_attractions_check check (jsonb_typeof(selected_attractions) = 'array')
+);
+
+create index if not exists idx_hotel_discovered_attractions_scenario_id on public.hotel_discovered_attractions(scenario_id);
+create index if not exists idx_hotel_discovered_attractions_hotel_name on public.hotel_discovered_attractions(hotel_name);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -146,8 +126,8 @@ execute function public.set_updated_at();
 
 alter table public.user_profiles enable row level security;
 alter table public.hotel_scenarios enable row level security;
-alter table public.hotel_attractions enable row level security;
 alter table public.hotel_source_data enable row level security;
+alter table public.hotel_discovered_attractions enable row level security;
 
 drop policy if exists "Users can read own profile" on public.user_profiles;
 create policy "Users can read own profile"
@@ -186,32 +166,6 @@ on public.hotel_scenarios
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
-
-drop policy if exists "Users can read own attractions" on public.hotel_attractions;
-create policy "Users can read own attractions"
-on public.hotel_attractions
-for select
-using (
-    exists (
-        select 1
-        from public.hotel_scenarios hs
-        where hs.id = hotel_attractions.scenario_id
-          and hs.user_id = auth.uid()
-    )
-);
-
-drop policy if exists "Users can insert own attractions" on public.hotel_attractions;
-create policy "Users can insert own attractions"
-on public.hotel_attractions
-for insert
-with check (
-    exists (
-        select 1
-        from public.hotel_scenarios hs
-        where hs.id = hotel_attractions.scenario_id
-          and hs.user_id = auth.uid()
-    )
-);
 
 drop policy if exists "Users can read own source data" on public.hotel_source_data;
 create policy "Users can read own source data"
@@ -260,8 +214,33 @@ with check (
     )
 );
 
+drop policy if exists "Users can read own discovered attractions" on public.hotel_discovered_attractions;
+create policy "Users can read own discovered attractions"
+on public.hotel_discovered_attractions
+for select
+using (
+    exists (
+        select 1
+        from public.hotel_scenarios hs
+        where hs.id = hotel_discovered_attractions.scenario_id
+          and hs.user_id = auth.uid()
+    )
+);
+
+drop policy if exists "Users can insert own discovered attractions" on public.hotel_discovered_attractions;
+create policy "Users can insert own discovered attractions"
+on public.hotel_discovered_attractions
+for insert
+with check (
+    exists (
+        select 1
+        from public.hotel_scenarios hs
+        where hs.id = hotel_discovered_attractions.scenario_id
+          and hs.user_id = auth.uid()
+    )
+);
+
 comment on table public.user_profiles is 'Application profile data. Authentication remains in Supabase Auth.';
 comment on table public.hotel_scenarios is 'Generated hotel video scenarios and final scripts.';
-comment on table public.hotel_attractions is 'Nearby public places found for a hotel scenario within the configured radius.';
-comment on column public.hotel_attractions.category is 'Primary place category. Allowed values: sports, children, honeymoon, culture, history, nature, shopping, food, entertainment, nightlife, wellness.';
 comment on table public.hotel_source_data is 'Parsed source data collected by headless browser and geocoding pipeline.';
+comment on table public.hotel_discovered_attractions is 'All discovered nearby attractions for a hotel scenario plus the subset selected for the final scenario.';

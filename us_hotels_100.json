@@ -1,0 +1,902 @@
+[
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/bhmak-grand-bohemian-hotel-mountain-brook-autograph-collection/overview/",
+        "business_goal": "Promote upscale stays near Birmingham attractions and botanical gardens",
+        "city": "Birmingham",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/mobbr-the-battle-house-renaissance-mobile-hotel-and-spa/overview/",
+        "business_goal": "Highlight historic Southern charm and spa experiences downtown",
+        "city": "Mobile",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hotelcaptaincook.com/",
+        "business_goal": "Showcase luxury stays with mountain views and downtown access",
+        "city": "Anchorage",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.pikeslodge.com/",
+        "business_goal": "Promote aurora viewing and riverside Alaska adventures",
+        "city": "Fairbanks",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.scottsdaleprincess.com/",
+        "business_goal": "Drive family vacation bookings and desert golf packages",
+        "city": "Scottsdale",
+        "country": "United States",
+        "guest_preference": "Family vacation, children, entertainment",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.lauberge.com/lauberge-de-sedona",
+        "business_goal": "Highlight creekside luxury and red rock wellness retreats",
+        "city": "Sedona",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.arlingtonhotel.com/",
+        "business_goal": "Promote historic spa heritage and downtown Hot Springs access",
+        "city": "Hot Springs",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.capitalhotel.com/",
+        "business_goal": "Showcase refined Southern hospitality and culinary experiences",
+        "city": "Little Rock",
+        "country": "United States",
+        "guest_preference": "Food, culture, romance",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://hoteldel.com/",
+        "business_goal": "Showcase beachside luxury and iconic Victorian architecture",
+        "city": "San Diego",
+        "country": "United States",
+        "guest_preference": "Nature, romance, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.postranchinn.com/",
+        "business_goal": "Highlight eco-luxury and cliff-top views of the Pacific",
+        "city": "Big Sur",
+        "country": "United States",
+        "guest_preference": "Nature, romance, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thebroadmoor.com/",
+        "business_goal": "Highlight 5-star mountain resort amenities and fine dining",
+        "city": "Colorado Springs",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://aubergeresorts.com/hoteljerome/",
+        "business_goal": "Promote ski season stays and historic Aspen character",
+        "city": "Aspen",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thestudyatyale.com/",
+        "business_goal": "Attract academic travelers and upscale weekend visitors",
+        "city": "New Haven",
+        "country": "United States",
+        "guest_preference": "Culture, food, shopping",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.delamar.com/hotels/delamar-greenwich-harbor",
+        "business_goal": "Promote waterfront luxury and fine dining escapes",
+        "city": "Greenwich",
+        "country": "United States",
+        "guest_preference": "Nature, romance, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hoteldupont.com/",
+        "business_goal": "Highlight grand historic interiors and downtown cultural access",
+        "city": "Wilmington",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thebellmoor.com/",
+        "business_goal": "Promote relaxing coastal getaways and spa weekends",
+        "city": "Rehoboth Beach",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.fontainebleau.com/",
+        "business_goal": "Drive spa reservations and luxury beachfront stays",
+        "city": "Miami Beach",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.fourseasons.com/orlando/",
+        "business_goal": "Promote premium family vacations and resort amenities",
+        "city": "Orlando",
+        "country": "United States",
+        "guest_preference": "Family vacation, children, entertainment",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.ritzcarlton.com/en/hotels/georgia/atlanta",
+        "business_goal": "Highlight downtown convenience and luxury business facilities",
+        "city": "Atlanta",
+        "country": "United States",
+        "guest_preference": "Culture, food, shopping",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.seaisland.com/accommodations/the-cloister/",
+        "business_goal": "Showcase family activities and exclusive Southern charm",
+        "city": "Sea Island",
+        "country": "United States",
+        "guest_preference": "Family vacation, children, entertainment",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.halekulani.com/",
+        "business_goal": "Showcase Waikiki beach views and authentic Hawaiian luxury",
+        "city": "Honolulu",
+        "country": "United States",
+        "guest_preference": "Nature, romance, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.montage.com/kapaluabay/",
+        "business_goal": "Promote oceanfront residences and wellness-focused island stays",
+        "city": "Lahaina",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.sunvalley.com/lodging/sun-valley-lodge/",
+        "business_goal": "Promote alpine luxury and year-round outdoor recreation",
+        "city": "Sun Valley",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.cdaresort.com/",
+        "business_goal": "Highlight lakefront golf and upscale Northwest getaways",
+        "city": "Coeur d'Alene",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.theblackstonehotel.com/",
+        "business_goal": "Showcase Michigan Avenue views and cultural significance",
+        "city": "Chicago",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.goldmoor.com/",
+        "business_goal": "Promote romantic Mississippi River bluff escapes",
+        "city": "Galena",
+        "country": "United States",
+        "guest_preference": "Honeymoon, romance, fine dining",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.bottleworkshotel.com/",
+        "business_goal": "Highlight art deco design and vibrant dining district access",
+        "city": "Indianapolis",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.frenchlick.com/hotels/french-lick-springs-hotel",
+        "business_goal": "Promote historic resort stays and golf packages",
+        "city": "French Lick",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.suretyhotel.com/",
+        "business_goal": "Attract urban travelers with boutique style and downtown energy",
+        "city": "Des Moines",
+        "country": "United States",
+        "guest_preference": "Shopping, food, entertainment",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hoteljuliendubuque.com/",
+        "business_goal": "Highlight riverfront history and upscale Midwest hospitality",
+        "city": "Dubuque",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.ambassadorwichita.com/",
+        "business_goal": "Promote boutique luxury and downtown entertainment access",
+        "city": "Wichita",
+        "country": "United States",
+        "guest_preference": "Shopping, food, entertainment",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.theinnatmeadowbrook.com/",
+        "business_goal": "Showcase serene upscale stays and event-friendly amenities",
+        "city": "Overland Park",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.brownhotel.com/",
+        "business_goal": "Highlight historic elegance and iconic Hot Brown dining",
+        "city": "Louisville",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.21cmuseumhotels.com/lexington/",
+        "business_goal": "Promote art-driven stays and bourbon country access",
+        "city": "Lexington",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hilton.com/en/hotels/msywa-waldorf-astoria-new-orleans/",
+        "business_goal": "Promote historic Roosevelt hotel heritage and Sazerac Bar",
+        "city": "New Orleans",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/btrak-watermark-baton-rouge-autograph-collection/overview/",
+        "business_goal": "Showcase downtown riverfront luxury and historic architecture",
+        "city": "Baton Rouge",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://aubergeresorts.com/whitebarninn/",
+        "business_goal": "Promote coastal romance and award-winning dining",
+        "city": "Kennebunkport",
+        "country": "United States",
+        "guest_preference": "Honeymoon, romance, fine dining",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thepresshotel.com/",
+        "business_goal": "Highlight literary design and Old Port access",
+        "city": "Portland",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.pendry.com/baltimore/",
+        "business_goal": "Showcase harborfront luxury and vibrant Fells Point nightlife",
+        "city": "Baltimore",
+        "country": "United States",
+        "guest_preference": "Nature, romance, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/wasgn-gaylord-national-resort-and-convention-center/overview/",
+        "business_goal": "Promote waterfront conventions and family entertainment",
+        "city": "National Harbor",
+        "country": "United States",
+        "guest_preference": "Family vacation, children, entertainment",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.libertyhotel.com/",
+        "business_goal": "Promote unique jail-turned-luxury-hotel experience in Beacon Hill",
+        "city": "Boston",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.canyonranch.com/lenox/",
+        "business_goal": "Highlight wellness retreats and Berkshires relaxation",
+        "city": "Lenox",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.grandhotel.com/",
+        "business_goal": "Promote the world's longest porch and horse-drawn carriage tours",
+        "city": "Mackinac Island",
+        "country": "United States",
+        "guest_preference": "Nature, wellness, food",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.shinolahotel.com/",
+        "business_goal": "Showcase design-forward stays and downtown Detroit culture",
+        "city": "Detroit",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.fourseasons.com/minneapolis/",
+        "business_goal": "Promote luxury city breaks and rooftop dining",
+        "city": "Minneapolis",
+        "country": "United States",
+        "guest_preference": "Food, culture, romance",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.fitgers.com/",
+        "business_goal": "Highlight lakeside history and canal park experiences",
+        "city": "Duluth",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://beaurivage.mgmresorts.com/",
+        "business_goal": "Promote Gulf Coast entertainment and upscale resort amenities",
+        "city": "Biloxi",
+        "country": "United States",
+        "guest_preference": "Entertainment, nightlife, food",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/janwi-the-westin-jackson/overview/",
+        "business_goal": "Highlight modern luxury and convention-friendly downtown stays",
+        "city": "Jackson",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.sonesta.com/royal-sonesta/mo/st-louis/royal-sonesta-chase-park-plaza-st-louis",
+        "business_goal": "Showcase historic grandeur and Forest Park proximity",
+        "city": "St. Louis",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hotelkc.com/",
+        "business_goal": "Promote restored historic architecture and vibrant nightlife",
+        "city": "Kansas City",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.montage.com/bigsky/",
+        "business_goal": "Highlight ski-in luxury and mountain adventure access",
+        "city": "Big Sky",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://lodgeatwhitefishlake.com/",
+        "business_goal": "Promote lakefront relaxation and Glacier National Park proximity",
+        "city": "Whitefish",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/omafn-the-farnam-autograph-collection/overview/",
+        "business_goal": "Showcase upscale downtown stays and riverfront access",
+        "city": "Omaha",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thekindlerhotel.com/",
+        "business_goal": "Promote boutique luxury and refined dining in the capital",
+        "city": "Lincoln",
+        "country": "United States",
+        "guest_preference": "Food, culture, romance",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://bellagio.mgmresorts.com/",
+        "business_goal": "Promote luxury suites and iconic fountain experiences",
+        "city": "Las Vegas",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.peppermillreno.com/",
+        "business_goal": "Highlight resort entertainment and spa escapes",
+        "city": "Reno",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.omnihotels.com/hotels/bretton-woods-mount-washington",
+        "business_goal": "Showcase grand mountain resort heritage and golf",
+        "city": "Bretton Woods",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.opalcollection.com/wentworth/",
+        "business_goal": "Promote coastal elegance and marina-side relaxation",
+        "city": "Portsmouth",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://borgata.mgmresorts.com/",
+        "business_goal": "Highlight upscale gaming, dining, and nightlife",
+        "city": "Atlantic City",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.nassauinn.com/",
+        "business_goal": "Promote historic charm and walkable university-town stays",
+        "city": "Princeton",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.rosewoodhotels.com/en/inn-of-the-anasazi-santa-fe",
+        "business_goal": "Showcase adobe luxury and authentic Southwestern culture",
+        "city": "Santa Fe",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hhandr.com/el-monte-sagrado",
+        "business_goal": "Promote serene spa retreats and artistic mountain escapes",
+        "city": "Taos",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.theplazany.com/",
+        "business_goal": "Increase direct bookings for iconic luxury stays on Fifth Avenue",
+        "city": "New York",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.mirrorlakeinn.com/",
+        "business_goal": "Highlight Adirondack lake views and romantic getaways",
+        "city": "Lake Placid",
+        "country": "United States",
+        "guest_preference": "Honeymoon, romance, fine dining",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.omnihotels.com/hotels/asheville-grove-park",
+        "business_goal": "Promote mountain spa escapes and Blue Ridge views",
+        "city": "Asheville",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/cltlc-the-ballantyne-a-luxury-collection-hotel-charlotte/overview/",
+        "business_goal": "Highlight upscale golf resort amenities and business travel appeal",
+        "city": "Charlotte",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hoteldonaldson.com/",
+        "business_goal": "Promote boutique art stays and downtown dining",
+        "city": "Fargo",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.choicehotels.com/north-dakota/bismarck/radisson-hotels/nd001",
+        "business_goal": "Highlight central location and event-friendly accommodations",
+        "city": "Bismarck",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.ritzcarlton.com/en/hotels/cleveland",
+        "business_goal": "Showcase luxury downtown stays and lakefront city access",
+        "city": "Cleveland",
+        "country": "United States",
+        "guest_preference": "Nature, romance, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/cmhak-hotel-leveque-autograph-collection/overview/",
+        "business_goal": "Promote art deco elegance and Scioto Mile proximity",
+        "city": "Columbus",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/okcak-the-national-autograph-collection/overview/",
+        "business_goal": "Highlight restored landmark architecture and luxury city stays",
+        "city": "Oklahoma City",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.themayohotel.com/",
+        "business_goal": "Promote rooftop experiences and historic downtown charm",
+        "city": "Tulsa",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.marriott.com/en-us/hotels/pdxlc-the-nines-a-luxury-collection-hotel-portland/overview/",
+        "business_goal": "Showcase art-filled luxury and downtown Portland access",
+        "city": "Portland",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.stephanieinn.com/",
+        "business_goal": "Promote romantic oceanfront escapes and coastal dining",
+        "city": "Cannon Beach",
+        "country": "United States",
+        "guest_preference": "Honeymoon, romance, fine dining",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.rittenhousehotel.com/",
+        "business_goal": "Highlight refined luxury overlooking Rittenhouse Square",
+        "city": "Philadelphia",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.omnihotels.com/hotels/pittsburgh-william-penn",
+        "business_goal": "Promote historic grandeur and downtown event stays",
+        "city": "Pittsburgh",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.oceanhouseri.com/",
+        "business_goal": "Promote beachfront relaxation and seasonal New England events",
+        "city": "Watch Hill",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thechanler.com/",
+        "business_goal": "Highlight mansion-style luxury and ocean views",
+        "city": "Newport",
+        "country": "United States",
+        "guest_preference": "Nature, romance, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thedewberrycharleston.com/",
+        "business_goal": "Showcase mid-century elegance and rooftop city views",
+        "city": "Charleston",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.seapines.com/lodging/the-inn-club-at-harbour-town",
+        "business_goal": "Promote golf-focused luxury and coastal leisure",
+        "city": "Hilton Head Island",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.lodgeatdeadwood.com/",
+        "business_goal": "Highlight Black Hills adventures and gaming entertainment",
+        "city": "Deadwood",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hilton.com/en/hotels/rapcudt-hotel-alex-johnson-rapid-city/",
+        "business_goal": "Promote historic downtown stays near Mount Rushmore routes",
+        "city": "Rapid City",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thehermitagehotel.com/",
+        "business_goal": "Promote Beaux-Arts design and historic political heritage",
+        "city": "Nashville",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.blackberryfarm.com/",
+        "business_goal": "Focus on high-end farm-to-table dining and nature wellness",
+        "city": "Walland",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.driskillhotel.com/",
+        "business_goal": "Highlight authentic Texan luxury and historic downtown vibe",
+        "city": "Austin",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thehotelemma.com/",
+        "business_goal": "Showcase Pearl District culture and luxury culinary stays",
+        "city": "San Antonio",
+        "country": "United States",
+        "guest_preference": "Food, culture, romance",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.aman.com/resorts/amangiri",
+        "business_goal": "Position as the ultimate desert sanctuary for ultra-luxury travelers",
+        "city": "Canyon Point",
+        "country": "United States",
+        "guest_preference": "Culture, food, nature",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.steinlodge.com/",
+        "business_goal": "Promote ski-in luxury and alpine wellness experiences",
+        "city": "Park City",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.topnotchresort.com/",
+        "business_goal": "Highlight mountain spa escapes and year-round recreation",
+        "city": "Stowe",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.woodstockinn.com/",
+        "business_goal": "Promote classic New England charm and resort activities",
+        "city": "Woodstock",
+        "country": "United States",
+        "guest_preference": "Nature, wellness, food",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.jeffersonhotel.com/",
+        "business_goal": "Highlight grand staircase and high-end Southern dining",
+        "city": "Richmond",
+        "country": "United States",
+        "guest_preference": "Food, culture, romance",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.theinnatlittlewashington.com/",
+        "business_goal": "Promote world-renowned culinary excellence and country charm",
+        "city": "Washington",
+        "country": "United States",
+        "guest_preference": "Food, culture, romance",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.fairmont.com/seattle/",
+        "business_goal": "Showcase timeless luxury and downtown Seattle landmarks",
+        "city": "Seattle",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.willowslodge.com/",
+        "business_goal": "Promote wine country escapes and spa relaxation",
+        "city": "Woodinville",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.greenbrier.com/",
+        "business_goal": "Promote luxury spa services and historic bunker tours",
+        "city": "White Sulphur Springs",
+        "country": "United States",
+        "guest_preference": "Wellness, relax, spa",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.hotelmorgan.com/",
+        "business_goal": "Highlight restored historic style and downtown convenience",
+        "city": "Morgantown",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.grandgeneva.com/",
+        "business_goal": "Promote golf, spa, and family resort experiences",
+        "city": "Lake Geneva",
+        "country": "United States",
+        "guest_preference": "Family vacation, children, entertainment",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thepfisterhotel.com/",
+        "business_goal": "Showcase historic elegance and arts-rich downtown stays",
+        "city": "Milwaukee",
+        "country": "United States",
+        "guest_preference": "Culture, history, sightseeing",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.aman.com/resorts/amangani",
+        "business_goal": "Highlight luxury mountain retreats and Grand Teton access",
+        "city": "Jackson",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    },
+    {
+        "hotel_website_url": "https://www.thecody.com/",
+        "business_goal": "Promote Yellowstone gateway stays and Western hospitality",
+        "city": "Cody",
+        "country": "United States",
+        "guest_preference": "Sports, nature, wellness",
+        "contact_email": "akrohaleva67@gmail.com",
+        "language": "English"
+    }
+]

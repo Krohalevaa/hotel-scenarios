@@ -133,7 +133,7 @@ async function getOneMessage() {
 
             const messages = Array.isArray(response.data) ? response.data : [];
             const firstMessage = messages[0] || null;
-            logger.debug(`RabbitMQ get response: status=${response.status}, messages=${messages.length}, vhost=${VHOST}, queue=${QUEUE_NAME}, attempt=${attempt + 1}, firstRoutingKey=${firstMessage?.routing_key || 'n/a'}, firstPayloadBytes=${firstMessage?.payload ? Buffer.byteLength(String(firstMessage.payload), 'utf8') : 0}`);
+            logger.debug(messages.length > 0 ? 'New message found' : 'No new messages');
 
             if (messages.length === 0) {
                 continue;
@@ -166,24 +166,24 @@ function consumeFromQueue(callback, intervalMs = 5000) {
     async function poll() {
         const ts = new Date().toISOString();
         try {
-            logger.debug(`[${ts}] Checking queue`);
+            logger.debug('Checking queue');
             const data = await getOneMessage();
             const fallbackJob = !data ? takeFallbackJob() : null;
             const job = data || fallbackJob?.data || null;
             const source = data ? 'rabbitmq' : (fallbackJob ? `fallback:${fallbackJob.reason}` : 'none');
-            logger.debug(`[${ts}] Poll result: job=${Boolean(job)}, source=${source}`);
+            logger.debug(job ? 'Starting next job' : 'Queue is empty');
 
             if (job) {
-                logger.debug(`[${ts}] Starting processing: ${job.hotel_name || job.hotel_website_url}, source=${source}`);
+                logger.info(`Processing request: ${job.hotel_name || job.hotel_website_url || 'unknown'}`);
 
                 await callback(job);
                 setTimeout(poll, 100);
             } else {
-                logger.debug(`[${ts}] No new requests`);
+                logger.debug('Waiting for new requests');
                 setTimeout(poll, intervalMs);
             }
         } catch (err) {
-            logger.warn(`[${ts}] Failed to check queue: ${err.message}`);
+            logger.warn('Could not check queue');
             setTimeout(poll, intervalMs);
         }
     }

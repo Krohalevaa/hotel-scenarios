@@ -141,7 +141,15 @@ async function processHotelData(hotelData) {
             hotelData.discovered_attractions = discoveredAttractionsRecord ? [discoveredAttractionsRecord] : [];
             hotelData.selected_place_categories = selectedCategories;
             hotelData.recommended_places = recommendedPlaces;
-            hotelData.nearby_attractions = recommendedPlaces.map((item) => item.name || item.attraction_name).filter(Boolean);
+
+            const fallbackNearbyAttractions = allNearbyPlaces
+                .map((item) => item.name || item.attraction_name)
+                .filter(Boolean)
+                .slice(0, 5);
+
+            hotelData.nearby_attractions = recommendedPlaces.length
+                ? recommendedPlaces.map((item) => item.name || item.attraction_name).filter(Boolean)
+                : fallbackNearbyAttractions;
 
             await db.saveScript({
                 id: scenarioId,

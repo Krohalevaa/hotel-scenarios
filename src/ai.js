@@ -110,23 +110,82 @@ function formatList(items, fallback = 'not specified') {
     return normalized.length ? normalized.join(', ') : fallback;
 }
 
+function getPlaceName(place) {
+    if (!place) return '';
+    return String(place.name || place.attraction_name || '').trim();
+}
+
+function getScriptAttractionCandidates(hotelData, limit = 5) {
+    const recommendedNames = Array.isArray(hotelData.recommended_places)
+        ? hotelData.recommended_places.map((item) => getPlaceName(item))
+        : [];
+
+    const discoveredNames = Array.isArray(hotelData.discovered_attractions?.[0]?.recommended_places)
+        ? hotelData.discovered_attractions[0].recommended_places.map((item) => getPlaceName(item))
+        : [];
+
+    const nearbyNames = Array.isArray(hotelData.nearby_attractions)
+        ? hotelData.nearby_attractions.map((item) => String(item || '').trim())
+        : [];
+
+    return normalizeList([
+        ...recommendedNames,
+        ...nearbyNames,
+        ...discoveredNames
+    ]).slice(0, limit);
+}
+
+function escapeRegExp(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function scriptMentionsAttractions(scriptText, attractionNames = []) {
+    if (!scriptText) return false;
+
+    const normalizedScript = String(scriptText).toLowerCase();
+    const validNames = normalizeList(attractionNames).filter((name) => name.length >= 3);
+
+    if (!validNames.length) {
+        return true;
+    }
+
+    return validNames.some((name) => {
+        const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(name.toLowerCase())}([^a-z0-9]|$)`, 'i');
+        return pattern.test(normalizedScript);
+    });
+}
+
 function buildStructuredFallbackScript(hotelData) {
     const hotelName = hotelData.hotel_name || 'this hotel';
     const city = hotelData.city || hotelData.location || hotelData.address || 'City';
     const location = hotelData.location || hotelData.address || hotelData.city || 'a great location';
     const businessGoal = hotelData.business_goal || 'increase direct bookings';
+    const guestPreference = String(hotelData.guest_preference || '').trim();
     const description = String(hotelData.description || '').trim();
     const amenities = normalizeList(hotelData.amenities).slice(0, 6);
     const offers = normalizeList(hotelData.special_offers).slice(0, 3);
-    const attractions = normalizeList(
-        (hotelData.recommended_places || []).map((item) => item.name || item.attraction_name)
-            .concat(hotelData.nearby_attractions || [])
-    ).slice(0, 3);
+    const attractions = getScriptAttractionCandidates(hotelData, 3);
 
     const visualBase = description || `${hotelName} in ${location}`;
     const amenityText = amenities.length ? amenities.join(', ') : 'comfort, style, and convenience';
     const attractionText = attractions.length ? attractions.join(' & ') : location;
     const offerText = offers.length ? offers.join(', ') : `Book now for ${businessGoal}`;
+    const preferenceText = guestPreference || 'memorable stays';
+    const preferenceVisual = guestPreference
+        ? `quick lifestyle cut that reflects ${guestPreference}`
+        : `quick lifestyle cut that shows ${amenityText}`;
+    const preferenceVoiceover = guestPreference
+        ? `Made for ${guestPreference}, with ${amenityText} built into the stay.`
+        : `Think ${amenityText} in one stay.`;
+    const locationVisual = attractions.length
+        ? `quick cut from hotel exterior to nearby highlights: signage, street approach, and guest moments at ${attractionText}.`
+        : `quick cut from hotel exterior to nearby area highlights around ${attractionText}.`;
+    const locationVoiceover = attractions.length
+        ? `Stay here and you’re close to ${attractionText}, giving every trip more to do right outside the hotel.`
+        : `You’re right by ${attractionText}, so the whole trip feels easy.`;
+    const hookVoiceover = guestPreference
+        ? `${hotelName} is your sign to stay in ${location} for ${preferenceText}.`
+        : `${hotelName} is your sign to stay in ${location}.`;
 
     return [
         `15s TikTok Script – ${hotelName}, ${city}`,
@@ -137,46 +196,53 @@ function buildStructuredFallbackScript(hotelData) {
         '⸻',
         '',
         'Scene 1 – HOOK (0–3s)',
-        `• Visual: slow zoom in on ${visualBase}.`,
+        `• Visual: slow zoom in on ${visualBase} with an opening mood that supports ${businessGoal}.`,
         '• Avatar: energetic smile, quick point to center.',
-        `• On-screen text (center): ${hotelName}`,
-        `• Voiceover:\n“${hotelName} is your sign to stay in ${location}. ”`,
+        `• On-screen text (center): ${hotelName} | ${businessGoal}`,
+        `• Voiceover:\n“${hookVoiceover}”`,
         '',
         '⸻',
         '',
         'Scene 2 – STAY VIBE (3–6s)',
-        `• Visual: quick cut to the best room or lifestyle shot that shows ${amenityText}.`,
+        `• Visual: ${preferenceVisual}.`,
         '• Avatar: open palm toward footage, confident nod.',
-        `• On-screen text (bottom-right): ${amenityText}`,
-        `• Voiceover:\n“Think ${amenityText} in one stay.”`,
+        `• On-screen text (bottom-right): ${guestPreference || amenityText}`,
+        `• Voiceover:\n“${preferenceVoiceover}”`,
         '',
         '⸻',
         '',
         'Scene 3 – COMFORT & DETAILS (6–9s)',
-        `• Visual: smooth pan across details that support the guest experience at ${hotelName}.`,
+        `• Visual: smooth pan across details that support the guest experience at ${hotelName}, highlighting ${amenityText}.`,
         '• Avatar: small hand sweep, relaxed smile.',
         `• On-screen text (top-right): ${businessGoal}`,
-        `• Voiceover:\n“Everything here is built to ${businessGoal}.”`,
+        `• Voiceover:\n“Everything here is built to ${businessGoal}${guestPreference ? ` for ${preferenceText}` : ''}.”`,
         '',
         '⸻',
         '',
         'Scene 4 – LOCATION (9–12s)',
-        `• Visual: quick cut from hotel exterior to nearby area highlights around ${attractionText}.`,
+        `• Visual: ${locationVisual}`,
         '• Avatar: points toward center, then nods.',
         `• On-screen text (top-left): ${attractionText}`,
-        `• Voiceover:\n“You’re right by ${attractionText}, so the whole trip feels easy.”`,
+        `• Voiceover:\n“${locationVoiceover}”`,
         '',
         '⸻',
         '',
         'Scene 5 – OFFER & CTA (12–15s)',
-        `• Visual: fast closing shot of the strongest hotel moment with booking energy on screen.`,
+        `• Visual: fast closing shot of the strongest hotel moment with booking energy on screen, ending on a CTA that supports ${businessGoal}.`,
         '• Avatar: direct point to center, then confirm with a nod.',
         `• On-screen text (center): ${offerText}`,
-        `• Voiceover:\n“${offerText} — book ${hotelName} now.”`
+        `• Voiceover:\n“${offerText} — book ${hotelName} now for ${preferenceText}.”`
     ].join('\n');
 }
 
 async function generateScript(hotelData) {
+    const scriptAttractionCandidates = getScriptAttractionCandidates(hotelData, 5);
+    const normalizedRecommendedPlaces = normalizeList(
+        Array.isArray(hotelData.recommended_places)
+            ? hotelData.recommended_places.map((item) => getPlaceName(item))
+            : []
+    );
+
     const hotelFacts = {
         hotel_name: hotelData.hotel_name || null,
         city: hotelData.city || null,
@@ -189,13 +255,13 @@ async function generateScript(hotelData) {
         amenities: normalizeList(hotelData.amenities).slice(0, 12),
         special_offers: normalizeList(hotelData.special_offers).slice(0, 8),
         selected_place_categories: normalizeList(hotelData.selected_place_categories).slice(0, 8),
-        recommended_places: (Array.isArray(hotelData.recommended_places) ? hotelData.recommended_places : []).slice(0, 12),
-        nearby_attractions: normalizeList(hotelData.nearby_attractions).slice(0, 12),
+        recommended_places: normalizedRecommendedPlaces.slice(0, 12),
+        nearby_attractions: scriptAttractionCandidates.slice(0, 12),
         description: hotelData.description || null
     };
 
     const targetLanguage = hotelData.language || 'English';
-    const nearbyAttractions = formatList(hotelData.nearby_attractions, 'Not specified');
+    const nearbyAttractions = formatList(scriptAttractionCandidates, 'Not specified');
 
     const systemMessage = `You are a professional scriptwriter for short, dynamic TikTok/Reels commercials. You specialize in scripts for the hotel industry.
 
@@ -209,6 +275,11 @@ CRITICAL RULES:
 - Never output phrases like “Use available hotel facts without inventing extra amenities.” or “No confirmed attractions were found, so focus on hotel-led experience.”
 - If some data is missing, still produce a complete 5-scene script using only confirmed facts from the input.
 - Do not invent amenities, offers, attractions, or claims that are not supported by the input.
+- The script MUST explicitly reflect all three inputs whenever they are available: (1) Business Goal, (2) Guest Preference, and (3) specific discovered nearby attractions / recommended places.
+- Guest Preference is mandatory to reflect in the creative angle, wording, and visuals whenever it is provided. Example: if the guest preference mentions family travel or children, the script must clearly emphasize family-friendly comfort, easy outings, and child-relevant moments.
+- Nearby attractions are mandatory to mention when they are available in the input. Use the actual confirmed attraction names from Recommended Places / Nearby Attractions, and make them part of the scenario and shot ideas.
+- Scene 4 must be built around nearby attractions when they are available, with concrete production-ready footage ideas showing what to film near the hotel.
+- Scene 1 and Scene 5 must reinforce the Business Goal directly and clearly.
 
 Original format (strictly adhere to this structure and markup):
 
@@ -266,18 +337,31 @@ Instructions for generating content:
 1. The script must be for a short 15-second video and be split into exactly 5 scenes of about 3 seconds each.
 2. Every scene must include all four fields: Visual, Avatar, On-screen text, and Voiceover.
 3. The entire tone must strongly support the Business Goal, especially Scene 1 and Scene 5.
-4. Scene 4 must mention one or two specific nearby attractions when they are available in the input.
-5. Scene 5 must integrate relevant Special Offers when they exist. If no offers exist, create a generic urgent CTA based on the Business Goal without mentioning missing data.
-6. Visuals must be short, specific, and production-ready. Use wording like “slow zoom in”, “quick cut to”, “smooth pan”, and similar.
-7. Voiceover must feel energetic, friendly, slightly intimate, and natural for a TikTok creator.
-8. Use only confirmed hotel facts from the input.
-9. Do not output placeholders. Replace every field with final content.`;
+4. The script must explicitly incorporate the Guest Preference whenever it is provided, not just mention it once. It must shape the angle of the stay, the emotional framing, and the shot selection.
+5. If the Guest Preference implies a specific audience or trip type (for example family trip, отдых с детьми, romantic escape, business travel, wellness weekend), the scenes must visibly and verbally reflect that audience or trip type.
+6. Scene 4 must mention one or two specific nearby attractions when they are available in the input.
+7. Scene 4 visuals must include concrete shot ideas tied to those attractions, such as what exactly to film near the hotel.
+8. Scene 5 must integrate relevant Special Offers when they exist. If no offers exist, create a generic urgent CTA based on the Business Goal without mentioning missing data.
+9. Visuals must be short, specific, and production-ready. Use wording like “slow zoom in”, “quick cut to”, “smooth pan”, and similar.
+10. Voiceover must feel energetic, friendly, slightly intimate, and natural for a TikTok creator.
+11. Use only confirmed hotel facts from the input.
+12. Do not output placeholders. Replace every field with final content.
+13. If Recommended Places or Nearby Attractions are present, you must use them in the final script as named local highlights, not ignore them.
+14. If Business Goal, Guest Preference, and nearby attractions are all present, all three must be clearly visible in the final script.`;
 
     const userMessage = `CRITICAL: You MUST write the entire script in the language specified in the Target Language field.
 
 Create a short 15-second hotel video script with exactly 5 scenes of about 3 seconds each.
 Each scene must be detailed, concise, and production-ready.
 Do not include any explanations or service text outside the final script.
+
+NON-NEGOTIABLE PRIORITIES FOR THIS SCRIPT:
+1. The final script must clearly reflect the Business Goal.
+2. The final script must clearly reflect the Guest Preference when it is provided.
+3. The final script must clearly mention specific discovered nearby attractions / recommended places when they are provided.
+4. Do not ignore any of these three dimensions if they exist in the input.
+5. If the Guest Preference says family trip / children / kids, make the script noticeably family-oriented in both visuals and voiceover.
+6. If nearby attractions are available, include them as concrete local highlights and suggest what footage to capture there.
 
 Hotel Name: ${hotelData.hotel_name || 'Not specified'}
 City: ${hotelData.city || 'Not specified'}
@@ -290,8 +374,9 @@ Nearby Attractions: ${nearbyAttractions}
 Business Goal: ${hotelData.business_goal || 'Not specified'}
 Target Language: ${targetLanguage}
 Guest Preference: ${hotelData.guest_preference || 'Not specified'}
-Recommended Places: ${formatList((hotelData.recommended_places || []).map((item) => item.name || item.attraction_name), 'Not specified')}
-Selected Categories: ${formatList(hotelData.selected_place_categories, 'Not specified')}`;
+Recommended Places: ${formatList(normalizedRecommendedPlaces, 'Not specified')}
+Selected Categories: ${formatList(hotelData.selected_place_categories, 'Not specified')}
+All Discovered Attractions For Mandatory Mention: ${formatList(scriptAttractionCandidates, 'Not specified')}`;
 
     const forbiddenPhrases = [
         'Use available hotel facts without inventing extra amenities.',
@@ -326,6 +411,14 @@ Selected Categories: ${formatList(hotelData.selected_place_categories, 'Not spec
         if (!hasValidScriptStructure(cleanScript) || containsForbiddenPhrases(cleanScript)) {
             logger.warn(`AI Script Writer returned invalid structure, using structured fallback for: ${hotelData.hotel_name}`);
             return buildStructuredFallbackScript(hotelData);
+        }
+
+        if (!scriptMentionsAttractions(cleanScript, scriptAttractionCandidates)) {
+            logger.warn(`AI Script Writer omitted discovered attractions, using structured fallback for: ${hotelData.hotel_name}`);
+            return buildStructuredFallbackScript({
+                ...hotelData,
+                nearby_attractions: scriptAttractionCandidates
+            });
         }
 
         return cleanScript;

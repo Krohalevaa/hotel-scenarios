@@ -8,7 +8,7 @@ const config = require('./config');
 
 const router = express.Router();
 const recentSubmissionCache = new Map();
-const RECENT_SUBMISSION_TTL_MS = 1000 * 60 * 10;
+const RECENT_SUBMISSION_TTL_MS = 1000 * 60 * 1;
 
 function buildSubmissionKey(hotelRequest = {}, userId = '') {
     return JSON.stringify({

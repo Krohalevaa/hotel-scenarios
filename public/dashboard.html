@@ -525,7 +525,9 @@
                         </div>
                         <button id="refreshScriptsBtn" class="ghost">Refresh list</button>
                     </div>
+                    <div id="scriptsSummary" style="margin-top:12px;color:#64748b;font-size:14px;"></div>
                     <div id="scriptsList" class="scripts" style="margin-top:18px;"></div>
+                    <div id="scriptsPagination" style="margin-top:18px;display:flex;justify-content:center;"></div>
                 </div>
             </section>
 
@@ -594,6 +596,15 @@
         let supabaseClient = null;
         let currentSession = null;
         let currentProfile = null;
+        let scriptsState = {
+            items: [],
+            total: 0,
+            limit: 20,
+            offset: 0,
+            hasMore: false,
+            loaded: false,
+            loading: false
+        };
 
         const globalMessage = document.getElementById('globalMessage');
         const headerAvatar = document.getElementById('headerAvatar');
@@ -604,7 +615,9 @@
         const lastNameInput = document.getElementById('lastName');
         const profileEmailInput = document.getElementById('profileEmail');
         const contactEmailInput = document.getElementById('contactEmail');
+        const scriptsSummary = document.getElementById('scriptsSummary');
         const scriptsList = document.getElementById('scriptsList');
+        const scriptsPagination = document.getElementById('scriptsPagination');
         const scriptModal = document.getElementById('scriptModal');
         const scriptModalTitle = document.getElementById('scriptModalTitle');
         const scriptModalMeta = document.getElementById('scriptModalMeta');
@@ -772,9 +785,15 @@
 
         function renderScripts(items) {
             if (!items.length) {
+                scriptsSummary.textContent = '0 scripts loaded';
                 scriptsList.innerHTML = '<div class="empty">No scripts yet. Start your first generation in the Generator section.</div>';
+                scriptsPagination.innerHTML = '';
                 return;
             }
+
+            const loadedCount = items.length;
+            const totalCount = scriptsState.total || loadedCount;
+            scriptsSummary.textContent = `Loaded ${loadedCount} of ${totalCount} scripts`;
 
             window.__scriptsMap = {};
             scriptsList.innerHTML = items.map((item, index) => {
@@ -783,7 +802,7 @@
                 const city = formatDisplayText(item.city);
                 const guestPreference = formatDisplayText(item.guest_preference);
                 const hotelUrl = decodeText(item.hotel_url);
-                const scriptId = `script-${index}`;
+                const scriptId = `script-${item.id || index}`;
                 window.__scriptsMap[scriptId] = item;
 
                 return `
@@ -815,6 +834,17 @@
                     await openScriptModalById(button.dataset.scriptId);
                 });
             });
+
+            scriptsPagination.innerHTML = scriptsState.hasMore
+                ? '<button id="loadMoreScriptsBtn" class="ghost" type="button">Load more</button>'
+                : '';
+
+            const loadMoreButton = document.getElementById('loadMoreScriptsBtn');
+            if (loadMoreButton) {
+                loadMoreButton.addEventListener('click', async () => {
+                    await loadScripts({ append: true });
+                });
+            }
         }
 
         async function initSupabase() {
@@ -883,16 +913,38 @@
             setAvatar(currentProfile.avatar_url || null);
         }
 
-        async function loadScripts() {
-            scriptsList.innerHTML = '<div class="empty">Loading scripts...</div>';
+        async function loadScripts(options = {}) {
+            const append = Boolean(options.append);
+            const nextOffset = append ? scriptsState.items.length : 0;
+
+            scriptsState.loading = true;
+            if (!append) {
+                scriptsList.innerHTML = '<div class="empty">Loading scripts...</div>';
+                scriptsPagination.innerHTML = '';
+                scriptsSummary.textContent = '';
+            }
 
             try {
-                const scriptsResponse = await api('/api/me/scripts');
-                renderScripts(scriptsResponse.data || []);
+                const scriptsResponse = await api(`/api/me/scripts?limit=${scriptsState.limit}&offset=${nextOffset}`);
+                const incomingItems = scriptsResponse.data || [];
+                const pagination = scriptsResponse.pagination || {};
+
+                scriptsState.items = append ? [...scriptsState.items, ...incomingItems] : incomingItems;
+                scriptsState.total = Number(pagination.total) || scriptsState.items.length;
+                scriptsState.limit = Number(pagination.limit) || scriptsState.limit;
+                scriptsState.offset = Number(pagination.offset) || nextOffset;
+                scriptsState.hasMore = Boolean(pagination.hasMore);
+                scriptsState.loaded = true;
+
+                renderScripts(scriptsState.items);
             } catch (error) {
                 console.error('[dashboard] Failed to load scripts:', error);
                 scriptsList.innerHTML = `<div class="empty">Failed to load scripts: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+                scriptsPagination.innerHTML = '';
+                scriptsSummary.textContent = '';
                 showMessage(error.message || 'Failed to load scripts.', 'error');
+            } finally {
+                scriptsState.loading = false;
             }
         }
 
@@ -915,7 +967,7 @@
                 document.getElementById(button.dataset.section).classList.add('active');
                 clearMessage();
 
-                if (button.dataset.section === 'scripts') {
+                if (button.dataset.section === 'scripts' && !scriptsState.loaded && !scriptsState.loading) {
                     await loadScripts();
                 }
             });
@@ -1000,6 +1052,11 @@
 
         document.getElementById('refreshScriptsBtn').addEventListener('click', async () => {
             clearMessage();
+            scriptsState.loaded = false;
+            scriptsState.items = [];
+            scriptsState.total = 0;
+            scriptsState.offset = 0;
+            scriptsState.hasMore = false;
             try {
                 await loadScripts();
                 showMessage('Scripts list refreshed.');
@@ -1086,7 +1143,7 @@
             if (!hasSession) return;
 
             try {
-                await Promise.all([loadProfile(), loadScripts()]);
+                await loadProfile();
             } catch (error) {
                 console.error('[dashboard] Bootstrap failed:', error);
                 showMessage(error.message, 'error');

@@ -52,6 +52,7 @@ create index if not exists idx_hotel_scenarios_user_id on public.hotel_scenarios
 create index if not exists idx_hotel_scenarios_status on public.hotel_scenarios(status);
 create index if not exists idx_hotel_scenarios_country on public.hotel_scenarios(country);
 create index if not exists idx_hotel_scenarios_created_at on public.hotel_scenarios(created_at desc);
+create index if not exists idx_hotel_scenarios_user_id_created_at on public.hotel_scenarios(user_id, created_at desc);
 
 create table if not exists public.hotel_source_data (
     id bigserial primary key,

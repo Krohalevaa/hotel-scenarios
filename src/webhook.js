@@ -257,8 +257,17 @@ router.get('/api/me/profile', requireAuth, async (req, res) => {
 
 router.get('/api/me/scripts', requireAuth, async (req, res) => {
     try {
-        const scripts = await db.getUserScripts(req.user.id);
-        res.json({ data: scripts });
+        const limit = Number.parseInt(req.query.limit, 10);
+        const offset = Number.parseInt(req.query.offset, 10);
+        const scripts = await db.getUserScripts(req.user.id, { limit, offset });
+        res.json({
+            data: scripts.items, pagination: {
+                total: scripts.total,
+                limit: scripts.limit,
+                offset: scripts.offset,
+                hasMore: scripts.hasMore
+            }
+        });
     } catch (error) {
         logger.error(`Failed to fetch user scripts: ${error.message}`);
         res.status(500).json({ error: 'Failed to fetch scripts.' });

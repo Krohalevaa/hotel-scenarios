@@ -235,21 +235,31 @@ async function updateScriptStatus(scenarioId, status, finalScript = null) {
     return data;
 }
 
-async function getUserScripts(userId) {
+async function getUserScripts(userId, options = {}) {
     ensureSupabaseConfigured();
 
-    const { data, error } = await supabase
+    const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 100);
+    const offset = Math.max(Number(options.offset) || 0, 0);
+
+    const { data, error, count } = await supabase
         .from('hotel_scenarios')
-        .select('*')
+        .select('id, contact_email, hotel_url, business_goal, guest_preference, city, country, language, status, hotel_name, created_at', { count: 'exact' })
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
     if (error) {
         logger.error(`Supabase getUserScripts error: ${error.message}`);
         throw error;
     }
 
-    return data || [];
+    return {
+        items: data || [],
+        total: count || 0,
+        limit,
+        offset,
+        hasMore: offset + (data?.length || 0) < (count || 0)
+    };
 }
 
 async function getUserScriptById(userId, scenarioId) {

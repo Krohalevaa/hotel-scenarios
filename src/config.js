@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+const azureInstanceName = process.env.AZURE_OPENAI_API_INSTANCE_NAME || '';
+const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT
+  || (azureInstanceName ? `https://${azureInstanceName}.openai.azure.com` : '');
+
 module.exports = {
   PORT: process.env.PORT || 3000,
   SCRAPER_API_URL: process.env.SCRAPER_API_URL || 'https://kondratmeech.orangepebble-c36ec136.eastus2.azurecontainerapps.io/scrape',
@@ -17,10 +21,11 @@ module.exports = {
   SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET || '',
 
   AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY,
-  AZURE_OPENAI_API_INSTANCE_NAME: process.env.AZURE_OPENAI_API_INSTANCE_NAME,
+  AZURE_OPENAI_API_INSTANCE_NAME: azureInstanceName,
+  AZURE_OPENAI_ENDPOINT: azureEndpoint,
   AZURE_OPENAI_DEPLOYMENT_SCRIPT: process.env.AZURE_OPENAI_DEPLOYMENT_SCRIPT || 'gpt-5',
   AZURE_OPENAI_DEPLOYMENT_SQL: process.env.AZURE_OPENAI_DEPLOYMENT_SQL || 'o3-mini',
-  AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION,
+  AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || '2025-03-01-preview',
 
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.yandex.ru',
   SMTP_PORT: process.env.SMTP_PORT || 587,

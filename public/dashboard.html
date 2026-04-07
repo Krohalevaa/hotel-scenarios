@@ -885,8 +885,15 @@
 
         async function loadScripts() {
             scriptsList.innerHTML = '<div class="empty">Loading scripts...</div>';
-            const scriptsResponse = await api('/api/me/scripts');
-            renderScripts(scriptsResponse.data || []);
+
+            try {
+                const scriptsResponse = await api('/api/me/scripts');
+                renderScripts(scriptsResponse.data || []);
+            } catch (error) {
+                console.error('[dashboard] Failed to load scripts:', error);
+                scriptsList.innerHTML = `<div class="empty">Failed to load scripts: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+                showMessage(error.message || 'Failed to load scripts.', 'error');
+            }
         }
 
         async function ensureSession() {
@@ -901,12 +908,16 @@
         }
 
         document.querySelectorAll('.nav-btn').forEach((button) => {
-            button.addEventListener('click', () => {
+            button.addEventListener('click', async () => {
                 document.querySelectorAll('.nav-btn').forEach((btn) => btn.classList.remove('active'));
                 document.querySelectorAll('.section').forEach((section) => section.classList.remove('active'));
                 button.classList.add('active');
                 document.getElementById(button.dataset.section).classList.add('active');
                 clearMessage();
+
+                if (button.dataset.section === 'scripts') {
+                    await loadScripts();
+                }
             });
         });
 

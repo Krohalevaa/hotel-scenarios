@@ -2,8 +2,16 @@ const axios = require('axios');
 const config = require('./config');
 const logger = require('./logger');
 
-async function azureChat(systemMessage, userMessage, deployment = config.AZURE_OPENAI_DEPLOYMENT) {
-    const url = `${config.AZURE_OPENAI_ENDPOINT}/openai/deployments/${deployment}/chat/completions?api-version=${config.AZURE_OPENAI_API_VERSION}`;
+async function azureChat(systemMessage, userMessage, deployment = config.AZURE_OPENAI_DEPLOYMENT_SCRIPT) {
+    if (!config.AZURE_OPENAI_ENDPOINT) {
+        throw new Error('Azure OpenAI endpoint is not configured. Set AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_INSTANCE_NAME.');
+    }
+
+    if (!config.AZURE_OPENAI_API_KEY) {
+        throw new Error('Azure OpenAI API key is not configured. Set AZURE_OPENAI_API_KEY.');
+    }
+
+    const url = `${config.AZURE_OPENAI_ENDPOINT.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${config.AZURE_OPENAI_API_VERSION}`;
 
     const response = await axios.post(url, {
         messages: [

@@ -89,18 +89,21 @@ function setCachedPublicPlaces(cacheKey, data) {
     });
 }
 
-async function fetchWithRetry(requestFn, maxRetries = 3) {
+async function fetchWithRetry(requestFn, maxRetries = 2) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
+            if (attempt > 0) {
+                await sleep(1200 * attempt);
+            }
             return await requestFn();
         } catch (err) {
             const status = err.response?.status;
-            const shouldRetry = status === 429 || (status >= 500 && status <= 504);
+            const shouldRetry = status === 429 || (status >= 500 && status <= 504) || err.code === 'ECONNABORTED';
 
             if (shouldRetry && attempt < maxRetries) {
-                const delay = (status === 429 ? 15000 : 3000) * Math.pow(2, attempt);
-                logger.warn(`Retry attempt ${attempt + 1} after ${delay}ms due to status ${status}`);
-                await new Promise((resolve) => setTimeout(resolve, delay));
+                const delay = (status === 429 ? 8000 : 2500) * Math.pow(2, attempt);
+                logger.warn(`Retry attempt ${attempt + 1} after ${delay}ms due to status ${status || err.code || 'unknown'}`);
+                await sleep(delay);
                 continue;
             }
             throw err;

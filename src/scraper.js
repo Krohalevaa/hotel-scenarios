@@ -3,20 +3,28 @@ const config = require('./config');
 const logger = require('./logger');
 
 // Helper for retry attempts (Retry Pattern)
-async function fetchWithRetry(requestFn, maxRetries = 2) {
+async function fetchWithRetry(requestFn, maxRetries = 1) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
+            if (attempt > 0) {
+                await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+            }
             return await requestFn();
         } catch (err) {
             const status = err.response?.status;
             const shouldRetry = status === 429 || (status >= 500 && status <= 504) || err.code === 'ECONNABORTED';
 
             if (shouldRetry && attempt < maxRetries) {
-                const delay = Math.pow(2, attempt) * 2000;
+                const delay = Math.pow(2, attempt) * 2500;
                 logger.warn(`Scraper retry attempt ${attempt + 1} after ${delay}ms due to error: ${err.message}`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
+
+            if (status === 400) {
+                logger.warn('Scraper API returned 400. Skipping retries and falling back to minimal hotel data.');
+            }
+
             throw err;
         }
     }
@@ -68,6 +76,53 @@ function extractHotelInfo(data, context) {
         return match ? match.join(', ') : '';
     }
 
+    function buildDomainFallbackName(url) {
+        try {
+            const domain = new URL(url).hostname
+                .replace(/^www\./i, '')
+                .split('.')[0]
+                .replace(/[-_]+/g, ' ')
+                .trim();
+
+            return domain
+                .split(/\s+/)
+                .filter(Boolean)
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(' ');
+        } catch (error) {
+            logger.warn(`Failed to build fallback hotel name from URL: ${error.message}`);
+            return '';
+        }
+    }
+
+    function normalizeCandidateName(value) {
+        return cleanText(value)
+            .replace(/\s*[|\-–—:]\s*(official site|official website|book direct|best rate guaranteed).*$/i, '')
+            .replace(/^(welcome to|discover|stay at)\s+/i, '')
+            .trim();
+    }
+
+    function isLikelySeoTitle(value) {
+        const normalized = String(value || '').trim();
+        if (!normalized) return true;
+
+        const seoPatterns = [
+            /^hotels? in\b/i,
+            /^best hotels? in\b/i,
+            /^luxury hotels? in\b/i,
+            /^boutique hotels? in\b/i,
+            /^places to stay in\b/i,
+            /^where to stay in\b/i,
+            /^visit\b/i,
+            /^travel\b/i,
+            /\bhotels? in\s+[a-z]/i,
+            /\bbook direct\b/i,
+            /\bbest rate guaranteed\b/i
+        ];
+
+        return seoPatterns.some((pattern) => pattern.test(normalized));
+    }
+
     const result = {
         hotel_name: 'Not found',
         location: 'Not found',
@@ -88,14 +143,17 @@ function extractHotelInfo(data, context) {
     };
 
     const dataArray = data.data || [];
+    const candidateNames = [];
 
     dataArray.forEach(item => {
         const sel = item.selector.toLowerCase();
         const texts = item.results.map(r => cleanText(r.text)).filter(Boolean);
 
         if (sel.includes('title') || sel.includes('name') || sel.includes('hotel-title') || sel.includes('headline')) {
+            candidateNames.push(...texts.map((text) => normalizeCandidateName(text)).filter(Boolean));
+
             if (!result.hotel_name || result.hotel_name === 'Not found') {
-                result.hotel_name = texts[0]?.replace(/\|.*$/, '').replace(/Official Website/i, '').trim() || 'Not found';
+                result.hotel_name = normalizeCandidateName(texts[0]) || 'Not found';
             }
         }
 
@@ -147,30 +205,28 @@ function extractHotelInfo(data, context) {
 
     // Task 7: Blacklist junk titles (Cloudflare, 403, etc.)
     const JUNK_TITLES = ['Access Denied', 'Just a moment', 'DDoS-Guard', '403 Forbidden', 'Cloudflare', 'Checking your browser', 'Attention Required!'];
-    if (JUNK_TITLES.some(j => result.hotel_name.includes(j))) {
-        logger.warn(`Junk title detected: "${result.hotel_name}". Clearing title to force AI inference.`);
+    const bestCandidate = candidateNames.find((candidate) => {
+        if (!candidate) return false;
+        if (JUNK_TITLES.some((junk) => candidate.includes(junk))) return false;
+        if (isLikelySeoTitle(candidate)) return false;
+        return candidate.length >= 3;
+    });
+
+    if (bestCandidate && bestCandidate !== result.hotel_name) {
+        logger.info(`Replacing weak scraped hotel title "${result.hotel_name}" with stronger candidate "${bestCandidate}".`);
+        result.hotel_name = bestCandidate;
+    }
+
+    if (JUNK_TITLES.some(j => result.hotel_name.includes(j)) || isLikelySeoTitle(result.hotel_name)) {
+        logger.warn(`Junk or SEO title detected: "${result.hotel_name}". Clearing title to force fallback inference.`);
         result.hotel_name = '';
     }
 
     if (!result.hotel_name || result.hotel_name === 'Not found') {
-        try {
-            const domain = new URL(context.hotel_website_url).hostname
-                .replace(/^www\./i, '')
-                .split('.')[0]
-                .replace(/[-_]+/g, ' ')
-                .trim();
-
-            if (domain) {
-                const fallbackName = domain
-                    .split(/\s+/)
-                    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                    .join(' ');
-
-                logger.warn(`Hotel title missing after scraping. Using domain fallback: "${fallbackName}".`);
-                result.hotel_name = fallbackName;
-            }
-        } catch (error) {
-            logger.warn(`Failed to build fallback hotel name from URL: ${error.message}`);
+        const fallbackName = buildDomainFallbackName(context.hotel_website_url);
+        if (fallbackName) {
+            logger.warn(`Hotel title missing after scraping. Using domain fallback: "${fallbackName}".`);
+            result.hotel_name = fallbackName;
         }
     }
 

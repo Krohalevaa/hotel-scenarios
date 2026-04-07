@@ -7,6 +7,38 @@ const logger = require('./logger');
 const config = require('./config');
 
 const router = express.Router();
+const recentSubmissionCache = new Map();
+const RECENT_SUBMISSION_TTL_MS = 1000 * 60 * 10;
+
+function buildSubmissionKey(hotelRequest = {}, userId = '') {
+    return JSON.stringify({
+        userId: userId || hotelRequest.user_id || '',
+        hotel_website_url: String(hotelRequest.hotel_website_url || '').trim().toLowerCase(),
+        city: String(hotelRequest.city || '').trim().toLowerCase(),
+        business_goal: String(hotelRequest.business_goal || '').trim().toLowerCase(),
+        guest_preference: String(hotelRequest.guest_preference || '').trim().toLowerCase(),
+        language: String(hotelRequest.language || 'English').trim().toLowerCase()
+    });
+}
+
+function isDuplicateRecentSubmission(hotelRequest = {}, userId = '') {
+    const key = buildSubmissionKey(hotelRequest, userId);
+    const now = Date.now();
+
+    for (const [cacheKey, createdAt] of recentSubmissionCache.entries()) {
+        if (now - createdAt > RECENT_SUBMISSION_TTL_MS) {
+            recentSubmissionCache.delete(cacheKey);
+        }
+    }
+
+    const existing = recentSubmissionCache.get(key);
+    if (existing && now - existing <= RECENT_SUBMISSION_TTL_MS) {
+        return true;
+    }
+
+    recentSubmissionCache.set(key, now);
+    return false;
+}
 
 function parseBase64Image(dataUrl) {
     const match = /^data:(.+);base64,(.+)$/.exec(dataUrl || '');
@@ -32,6 +64,10 @@ function splitFullName(fullName) {
  * Helper to process a single hotel (Scrape -> Extract -> Queue)
  */
 async function processSingleHotel(hotelRequest) {
+    if (isDuplicateRecentSubmission(hotelRequest, hotelRequest.user_id)) {
+        logger.warn(`Skipping duplicate hotel submission for ${hotelRequest.hotel_website_url}`);
+        return;
+    }
     const context = {
         request_id: Date.now().toString() + Math.random().toString(16).slice(2),
         created_at: new Date().toISOString(),
@@ -148,32 +184,49 @@ router.post('/api/bulk-generate-script', requireAuth, async (req, res) => {
         return res.status(400).json({ error: 'Expected an array of hotels.' });
     }
 
-    logger.info(`Received request batch: ${hotels.length}`);
+    const normalizedHotels = hotels.filter((hotel) => hotel?.hotel_website_url);
+    const uniqueHotels = [];
+    const seenKeys = new Set();
 
-    res.json({ message: `Started processing ${hotels.length} hotels in batches. Check logs for progress.` });
+    for (const hotel of normalizedHotels) {
+        const dedupeKey = buildSubmissionKey({
+            ...hotel,
+            language: hotel.language || 'English'
+        }, req.user.id);
 
-    const BATCH_SIZE = 3;
+        if (seenKeys.has(dedupeKey)) {
+            logger.warn(`Skipping duplicate hotel within bulk payload: ${hotel.hotel_website_url}`);
+            continue;
+        }
+
+        seenKeys.add(dedupeKey);
+        uniqueHotels.push(hotel);
+    }
+
+    logger.info(`Received request batch: ${hotels.length}, unique after dedupe: ${uniqueHotels.length}`);
+
+    res.json({ message: `Started processing ${uniqueHotels.length} hotels in batches. Check logs for progress.` });
+
+    const BATCH_SIZE = 2;
     (async () => {
-        for (let i = 0; i < hotels.length; i += BATCH_SIZE) {
-            const batch = hotels.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < uniqueHotels.length; i += BATCH_SIZE) {
+            const batch = uniqueHotels.slice(i, i + BATCH_SIZE);
             logger.info(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} hotels`);
 
-            await Promise.allSettled(
-                batch.map(async (hotel) => {
-                    try {
-                        await processSingleHotel({
-                            ...hotel,
-                            user_id: req.user.id,
-                            contact_email: hotel.contact_email || req.user.email
-                        });
-                    } catch (err) {
-                        logger.error(`Error in one of the batch hotels: ${err.message}`);
-                    }
-                })
-            );
+            for (const hotel of batch) {
+                try {
+                    await processSingleHotel({
+                        ...hotel,
+                        user_id: req.user.id,
+                        contact_email: hotel.contact_email || req.user.email
+                    });
+                } catch (err) {
+                    logger.error(`Error in one of the batch hotels: ${err.message}`);
+                }
+            }
 
-            if (i + BATCH_SIZE < hotels.length) {
-                await new Promise((resolve) => setTimeout(resolve, 5000));
+            if (i + BATCH_SIZE < uniqueHotels.length) {
+                await new Promise((resolve) => setTimeout(resolve, 7000));
             }
         }
     })();

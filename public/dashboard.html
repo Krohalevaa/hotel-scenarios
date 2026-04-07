@@ -457,7 +457,7 @@
 
             <section id="generator" class="section active">
                 <div class="grid">
-                    <div class="card">
+                    <div class="card full">
                         <h2>Single Generation</h2>
                         <form id="singleGeneratorForm" class="stack">
                             <div>
@@ -496,22 +496,6 @@
                             <button class="primary" type="submit">Start generation</button>
                         </form>
                     </div>
-
-                    <div class="card">
-                        <h2>Bulk upload</h2>
-                        <form id="bulkGeneratorForm" class="stack">
-                            <div>
-                                <label for="bulkJson">Hotels JSON array</label>
-                                <textarea id="bulkJson"
-                                    placeholder='[{"hotel_website_url":"https://hotel.com","city":"Paris","country":"France","business_goal":"Increase direct bookings","guest_preference":"Family vacation, adults only, honeymoon trip"}]'
-                                    required></textarea>
-                            </div>
-                            <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">Each hotel object can
-                                include <code>country</code> and <code>guest_preference</code> in addition to the
-                                required fields.</p>
-                            <button class="primary" type="submit">Start bulk generation</button>
-                        </form>
-                    </div>
                 </div>
             </section>
 
@@ -525,7 +509,13 @@
                         </div>
                         <button id="refreshScriptsBtn" class="ghost">Refresh list</button>
                     </div>
-                    <div id="scriptsSummary" style="margin-top:12px;color:#64748b;font-size:14px;"></div>
+                    <div style="margin-top:16px;display:grid;gap:10px;">
+                        <div>
+                            <label for="scriptsSearchInput">Search by hotel name</label>
+                            <input id="scriptsSearchInput" type="search" placeholder="Start typing a hotel name">
+                        </div>
+                        <div id="scriptsSummary" style="color:#64748b;font-size:14px;"></div>
+                    </div>
                     <div id="scriptsList" class="scripts" style="margin-top:18px;"></div>
                     <div id="scriptsPagination" style="margin-top:18px;display:flex;justify-content:center;"></div>
                 </div>
@@ -599,11 +589,13 @@
         let scriptsState = {
             items: [],
             total: 0,
-            limit: 20,
+            limit: 10,
             offset: 0,
             hasMore: false,
             loaded: false,
-            loading: false
+            loading: false,
+            currentPage: 1,
+            searchTerm: ''
         };
 
         const globalMessage = document.getElementById('globalMessage');
@@ -618,6 +610,7 @@
         const scriptsSummary = document.getElementById('scriptsSummary');
         const scriptsList = document.getElementById('scriptsList');
         const scriptsPagination = document.getElementById('scriptsPagination');
+        const scriptsSearchInput = document.getElementById('scriptsSearchInput');
         const scriptModal = document.getElementById('scriptModal');
         const scriptModalTitle = document.getElementById('scriptModalTitle');
         const scriptModalMeta = document.getElementById('scriptModalMeta');
@@ -783,7 +776,19 @@
             scriptModal.setAttribute('aria-hidden', 'true');
         }
 
+        function getFilteredScripts(items) {
+            const normalizedSearch = scriptsState.searchTerm.trim().toLowerCase();
+            if (!normalizedSearch) {
+                return items;
+            }
+
+            return items.filter((item) => formatDisplayText(item.hotel_name, '').toLowerCase().includes(normalizedSearch));
+        }
+
         function renderScripts(items) {
+            const filteredItems = getFilteredScripts(items);
+            const hasSearch = Boolean(scriptsState.searchTerm.trim());
+
             if (!items.length) {
                 scriptsSummary.textContent = '0 scripts loaded';
                 scriptsList.innerHTML = '<div class="empty">No scripts yet. Start your first generation in the Generator section.</div>';
@@ -791,12 +796,28 @@
                 return;
             }
 
-            const loadedCount = items.length;
-            const totalCount = scriptsState.total || loadedCount;
-            scriptsSummary.textContent = `Loaded ${loadedCount} of ${totalCount} scripts`;
+            const totalCount = scriptsState.total || items.length;
+            const currentPage = scriptsState.currentPage || 1;
+            const totalPages = Math.max(1, Math.ceil(totalCount / scriptsState.limit));
+            const startItem = (currentPage - 1) * scriptsState.limit + 1;
+            const endItem = Math.min(startItem + items.length - 1, totalCount);
+            const filteredCount = filteredItems.length;
+            scriptsSummary.textContent = hasSearch
+                ? `Showing ${filteredCount} matches on page ${currentPage} of ${totalPages} (${startItem}-${endItem} of ${totalCount} scripts loaded)`
+                : `Showing ${startItem}-${endItem} of ${totalCount} scripts`;
+
+            if (!filteredItems.length) {
+                scriptsList.innerHTML = '<div class="empty">No hotels found for this search on the current page.</div>';
+                scriptsPagination.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">
+                        <span style="color:#64748b;font-size:14px;">Page ${currentPage} of ${totalPages}</span>
+                    </div>
+                `;
+                return;
+            }
 
             window.__scriptsMap = {};
-            scriptsList.innerHTML = items.map((item, index) => {
+            scriptsList.innerHTML = filteredItems.map((item, index) => {
                 const hotelName = formatDisplayText(item.hotel_name, 'Untitled');
                 const businessGoal = formatDisplayText(item.business_goal);
                 const city = formatDisplayText(item.city);
@@ -835,14 +856,32 @@
                 });
             });
 
-            scriptsPagination.innerHTML = scriptsState.hasMore
-                ? '<button id="loadMoreScriptsBtn" class="ghost" type="button">Load more</button>'
-                : '';
+            const prevDisabled = currentPage <= 1 ? 'disabled' : '';
+            const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
+            scriptsPagination.innerHTML = `
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">
+                    <button id="prevScriptsPageBtn" class="ghost" type="button" ${prevDisabled}>Previous</button>
+                    <span style="color:#64748b;font-size:14px;">Page ${currentPage} of ${totalPages}</span>
+                    <button id="nextScriptsPageBtn" class="ghost" type="button" ${nextDisabled}>Next</button>
+                </div>
+            `;
 
-            const loadMoreButton = document.getElementById('loadMoreScriptsBtn');
-            if (loadMoreButton) {
-                loadMoreButton.addEventListener('click', async () => {
-                    await loadScripts({ append: true });
+            const prevButton = document.getElementById('prevScriptsPageBtn');
+            const nextButton = document.getElementById('nextScriptsPageBtn');
+
+            if (prevButton) {
+                prevButton.addEventListener('click', async () => {
+                    if (scriptsState.currentPage > 1) {
+                        await loadScripts({ page: scriptsState.currentPage - 1 });
+                    }
+                });
+            }
+
+            if (nextButton) {
+                nextButton.addEventListener('click', async () => {
+                    if (scriptsState.currentPage < totalPages) {
+                        await loadScripts({ page: scriptsState.currentPage + 1 });
+                    }
                 });
             }
         }
@@ -914,26 +953,25 @@
         }
 
         async function loadScripts(options = {}) {
-            const append = Boolean(options.append);
-            const nextOffset = append ? scriptsState.items.length : 0;
+            const requestedPage = Math.max(Number(options.page) || 1, 1);
+            const nextOffset = (requestedPage - 1) * scriptsState.limit;
 
             scriptsState.loading = true;
-            if (!append) {
-                scriptsList.innerHTML = '<div class="empty">Loading scripts...</div>';
-                scriptsPagination.innerHTML = '';
-                scriptsSummary.textContent = '';
-            }
+            scriptsList.innerHTML = '<div class="empty">Loading scripts...</div>';
+            scriptsPagination.innerHTML = '';
+            scriptsSummary.textContent = '';
 
             try {
                 const scriptsResponse = await api(`/api/me/scripts?limit=${scriptsState.limit}&offset=${nextOffset}`);
                 const incomingItems = scriptsResponse.data || [];
                 const pagination = scriptsResponse.pagination || {};
 
-                scriptsState.items = append ? [...scriptsState.items, ...incomingItems] : incomingItems;
-                scriptsState.total = Number(pagination.total) || scriptsState.items.length;
+                scriptsState.items = incomingItems;
+                scriptsState.total = Number(pagination.total) || incomingItems.length;
                 scriptsState.limit = Number(pagination.limit) || scriptsState.limit;
                 scriptsState.offset = Number(pagination.offset) || nextOffset;
                 scriptsState.hasMore = Boolean(pagination.hasMore);
+                scriptsState.currentPage = Math.floor(scriptsState.offset / scriptsState.limit) + 1;
                 scriptsState.loaded = true;
 
                 renderScripts(scriptsState.items);
@@ -1022,31 +1060,11 @@
             }
         });
 
-        document.getElementById('bulkGeneratorForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            clearMessage();
-            const button = event.submitter;
-            button.disabled = true;
 
-            try {
-                const hotels = JSON.parse(document.getElementById('bulkJson').value);
-                if (!Array.isArray(hotels)) {
-                    throw new Error('A JSON array of hotel objects is required.');
-                }
-
-                await api('/api/bulk-generate-script', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(hotels)
-                });
-
-                showMessage(`Bulk generation started: ${hotels.length} hotels.`);
-                event.target.reset();
-            } catch (error) {
-                console.error('[dashboard] Bulk generation failed:', error);
-                showMessage(error.message, 'error');
-            } finally {
-                button.disabled = false;
+        scriptsSearchInput.addEventListener('input', (event) => {
+            scriptsState.searchTerm = event.target.value || '';
+            if (scriptsState.loaded && !scriptsState.loading) {
+                renderScripts(scriptsState.items);
             }
         });
 
@@ -1057,8 +1075,9 @@
             scriptsState.total = 0;
             scriptsState.offset = 0;
             scriptsState.hasMore = false;
+            scriptsState.currentPage = 1;
             try {
-                await loadScripts();
+                await loadScripts({ page: 1 });
                 showMessage('Scripts list refreshed.');
             } catch (error) {
                 console.error('[dashboard] Refresh scripts failed:', error);

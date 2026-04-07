@@ -83,7 +83,7 @@ create index if not exists idx_hotel_source_data_country on public.hotel_source_
 
 create table if not exists public.hotel_discovered_attractions (
     id bigserial primary key,
-    scenario_id uuid not null references public.hotel_scenarios(id) on delete cascade,
+    scenario_id uuid not null unique references public.hotel_scenarios(id) on delete cascade,
     hotel_name text,
     city text,
     country text,
@@ -93,6 +93,9 @@ create table if not exists public.hotel_discovered_attractions (
     constraint hotel_discovered_attractions_categories_check check (jsonb_typeof(attraction_categories) = 'object'),
     constraint hotel_discovered_attractions_selected_attractions_check check (jsonb_typeof(selected_attractions) = 'array')
 );
+
+create unique index if not exists idx_hotel_discovered_attractions_scenario_id_unique
+on public.hotel_discovered_attractions(scenario_id);
 
 create index if not exists idx_hotel_discovered_attractions_scenario_id on public.hotel_discovered_attractions(scenario_id);
 create index if not exists idx_hotel_discovered_attractions_hotel_name on public.hotel_discovered_attractions(hotel_name);

@@ -135,11 +135,6 @@ async function saveDiscoveredAttractions(scenarioId, hotelName, city, country, a
         return null;
     }
 
-    await supabase
-        .from('hotel_discovered_attractions')
-        .delete()
-        .eq('scenario_id', scenarioId);
-
     const payload = {
         scenario_id: scenarioId,
         hotel_name: hotelName || null,
@@ -151,12 +146,12 @@ async function saveDiscoveredAttractions(scenarioId, hotelName, city, country, a
 
     const { data, error } = await supabase
         .from('hotel_discovered_attractions')
-        .insert(payload)
+        .upsert(payload, { onConflict: 'scenario_id' })
         .select()
         .single();
 
     if (error) {
-        logger.error(`Supabase saveDiscoveredAttractions error: ${error.message}`);
+        logger.error(`Supabase saveDiscoveredAttractions error for scenario ${scenarioId}: ${error.message}`);
         throw error;
     }
 
@@ -187,6 +182,12 @@ async function saveHotelSourceData(sourceData) {
         search_radius_meters: Number(sourceData.search_radius_meters || 0),
         selected_place_categories: normalizeStringArray(sourceData.selected_place_categories, 10)
     };
+
+    Object.keys(payload).forEach((key) => {
+        if (payload[key] === undefined) {
+            delete payload[key];
+        }
+    });
 
     const { data, error } = await supabase
         .from('hotel_source_data')

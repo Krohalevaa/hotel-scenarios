@@ -461,28 +461,42 @@ Extract the hotel name:`;
 }
 
 async function predictOsmHotelData(hotelName, city, url = '') {
+    const blockedNames = ['attention required!', 'access denied', 'just a moment', 'ddos-guard', '403 forbidden', 'cloudflare', 'checking your browser'];
+    const normalizedHotelName = String(hotelName || '').trim();
+    const normalizedBlockedName = normalizedHotelName.toLowerCase();
+
+    if (!normalizedHotelName || blockedNames.includes(normalizedBlockedName)) {
+        const extractedName = await extractCleanHotelName(normalizedHotelName || url, url);
+        if (extractedName) {
+            logger.warn(`Replacing invalid hotel name "${normalizedHotelName || 'empty'}" with extracted name "${extractedName}" before OSM prediction.`);
+            hotelName = extractedName;
+        } else {
+            hotelName = normalizedHotelName || 'Hotel';
+        }
+    }
+
     const systemMessage = `You are an expert in cartography and OpenStreetMap (OSM).
-Your task is to analyze a noisy hotel name, city, and URL, and predict the name under which this hotel may be listed in OpenStreetMap (the name tag).
+    Your task is to analyze a noisy hotel name, city, and URL, and predict the name under which this hotel may be listed in OpenStreetMap (the name tag).
 
-RULES:
-1. Clean the name from marketing noise such as Luxury, Near, Best, Official Site, and similar wording.
-2. Consider local naming conventions. For example, hotels in OSM are often stored with the brand included, such as "The Pierre, a Taj Hotel".
-3. If the name contains a domain like theplazany.com, extract the real hotel name from it, such as "The Plaza".
-4. DO NOT hallucinate. If you are not confident that the hotel exists, return the cleanest possible version of the original name.
-5. Also provide the expected hotel address if you can infer it from the name and city.
+    RULES:
+    1. Clean the name from marketing noise such as Luxury, Near, Best, Official Site, and similar wording.
+    2. Consider local naming conventions. For example, hotels in OSM are often stored with the brand included, such as "The Pierre, a Taj Hotel".
+    3. If the name contains a domain like theplazany.com, extract the real hotel name from it, such as "The Plaza".
+    4. DO NOT hallucinate. If you are not confident that the hotel exists, return the cleanest possible version of the original name.
+    5. Also provide the expected hotel address if you can infer it from the name and city.
 
-Return STRICT JSON only. No extra text.
-Response format:
-{
-  "osm_target_name": "Exact name for OSM lookup and database storage",
-  "expected_address": "Street, building, district"
-}
-6. This name will be USED as the primary hotel name in our database, so it must be as official and accurate as possible.`;
+    Return STRICT JSON only. No extra text.
+    Response format:
+    {
+      "osm_target_name": "Exact name for OSM lookup and database storage",
+      "expected_address": "Street, building, district"
+    }
+    6. This name will be USED as the primary hotel name in our database, so it must be as official and accurate as possible.`;
 
     const userMessage = `Hotel: "${hotelName}"
-City: "${city}"
-URL: "${url}"
-Predict the OSM data:`;
+    City: "${city}"
+    URL: "${url}"
+    Predict the OSM data:`;
 
     try {
         logger.debug(`AI: Predicting OSM internal name for: "${hotelName}" in ${city}`);

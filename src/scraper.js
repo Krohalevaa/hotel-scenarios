@@ -146,10 +146,32 @@ function extractHotelInfo(data, context) {
     }
 
     // Task 7: Blacklist junk titles (Cloudflare, 403, etc.)
-    const JUNK_TITLES = ['Access Denied', 'Just a moment', 'DDoS-Guard', '403 Forbidden', 'Cloudflare', 'Checking your browser'];
+    const JUNK_TITLES = ['Access Denied', 'Just a moment', 'DDoS-Guard', '403 Forbidden', 'Cloudflare', 'Checking your browser', 'Attention Required!'];
     if (JUNK_TITLES.some(j => result.hotel_name.includes(j))) {
         logger.warn(`Junk title detected: "${result.hotel_name}". Clearing title to force AI inference.`);
         result.hotel_name = '';
+    }
+
+    if (!result.hotel_name || result.hotel_name === 'Not found') {
+        try {
+            const domain = new URL(context.hotel_website_url).hostname
+                .replace(/^www\./i, '')
+                .split('.')[0]
+                .replace(/[-_]+/g, ' ')
+                .trim();
+
+            if (domain) {
+                const fallbackName = domain
+                    .split(/\s+/)
+                    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                    .join(' ');
+
+                logger.warn(`Hotel title missing after scraping. Using domain fallback: "${fallbackName}".`);
+                result.hotel_name = fallbackName;
+            }
+        } catch (error) {
+            logger.warn(`Failed to build fallback hotel name from URL: ${error.message}`);
+        }
     }
 
     return result;

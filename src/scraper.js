@@ -34,17 +34,20 @@ async function scrapeHotelWebsite(url) {
     try {
         const payload = {
             url: url,
-            gotoOptions: { waitUntil: "networkidle2", timeout: 60000 },
+            gotoOptions: { waitUntil: 'networkidle2', timeout: 60000 },
             elements: [
-                { selector: "title" },
-                { selector: "h1, h2, h3" },
-                { selector: "[itemprop='name'], .hotel-name, .title, [class*='hotel-title' i], [class*='headline' i]" },
-                { selector: "[itemprop='address'], address, .address, .location, .hotel-address, footer address" },
-                { selector: "[itemprop='telephone'], [itemprop='email'], .phone, .contact, [class*='phone' i], [class*='email' i]" },
-                { selector: ".description, .overview, .about, .hotel-info, .introduction, main p, .content p, [class*='description' i]" },
-                { selector: ".offer, .promotion, .deal, .special, .promo, [class*='offer' i], [class*='promo' i], [class*='deal' i]" },
-                { selector: ".amenities li, .facilities li, .services li, .features li, [class*='amenity' i] li, [class*='facility' i] li" },
-                { selector: "img[src*='room'], img[src*='gallery'], img[src*='hotel'], img[alt*='room'], img[alt*='suite'], .gallery img, .slider img, [class*='photo' i] img" }
+                { selector: 'title' },
+                { selector: 'h1, h2, h3' },
+                { selector: '[itemprop="name"], .hotel-name, .title, [class*="hotel-title" i], [class*="headline" i]' },
+                { selector: '[itemprop="address"], address, .address, .location, .hotel-address, footer address' },
+                { selector: '[itemprop="telephone"], [itemprop="email"], .phone, .contact, [class*="phone" i], [class*="email" i]' },
+                { selector: '.description, .overview, .about, .hotel-info, .introduction, main p, .content p, [class*="description" i]' },
+                { selector: '.offer, .promotion, .deal, .special, .promo, [class*="offer" i], [class*="promo" i], [class*="deal" i]' },
+                { selector: '.amenities li, .facilities li, .services li, .features li, [class*="amenity" i] li, [class*="facility" i] li' },
+                { selector: 'img[src*="room"], img[src*="gallery"], img[src*="hotel"], img[alt*="room"], img[alt*="suite"], .gallery img, .slider img, [class*="photo" i] img' },
+                { selector: 'meta[property="og:site_name"], meta[property="og:title"], meta[name="application-name"], meta[name="twitter:title"], meta[itemprop="name"]' },
+                { selector: 'script[type="application/ld+json"]' },
+                { selector: 'header img[alt], .logo img[alt], [class*="logo" i] img[alt], [class*="brand" i] img[alt]' }
             ]
         };
 
@@ -56,7 +59,7 @@ async function scrapeHotelWebsite(url) {
 
         return response.data;
     } catch (error) {
-        console.error("Scraping error:", error.message);
+        console.error('Scraping error:', error.message);
         throw error;
     }
 }
@@ -76,19 +79,62 @@ function extractHotelInfo(data, context) {
         return match ? match.join(', ') : '';
     }
 
+    function titleCaseWords(value) {
+        return String(value || '')
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ')
+            .trim();
+    }
+
+    function splitCompactDomainWords(value) {
+        return String(value || '')
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            .replace(/(hotel|resort|suites|suite|inn|lodge|spa|palace|villa|apartments|boutique|collection|marriott|hilton|hyatt|sheraton|westin|ritz|plaza|grand|royal|park|house|club)/gi, ' $1 ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     function buildDomainFallbackName(url) {
         try {
-            const domain = new URL(url).hostname
-                .replace(/^www\./i, '')
-                .split('.')[0]
-                .replace(/[-_]+/g, ' ')
-                .trim();
+            const parsedUrl = new URL(url);
+            const hostname = parsedUrl.hostname.replace(/^www\./i, '');
+            const domainPart = hostname.split('.')[0] || '';
+            const pathParts = parsedUrl.pathname
+                .split('/')
+                .map((part) => decodeURIComponent(part || '').trim())
+                .filter(Boolean);
 
-            return domain
-                .split(/\s+/)
-                .filter(Boolean)
-                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                .join(' ');
+            const rawCandidates = [
+                ...pathParts.slice(-2),
+                domainPart
+            ];
+
+            const stopWords = new Set([
+                'hotel', 'hotels', 'official', 'book', 'booking', 'stay', 'luxury', 'resort', 'resorts', 'collection', 'group', 'welcome', 'home', 'index'
+            ]);
+
+            for (const rawCandidate of rawCandidates) {
+                const normalized = splitCompactDomainWords(rawCandidate)
+                    .replace(/[-_]+/g, ' ')
+                    .replace(/\.(html?|php|aspx?)$/i, '')
+                    .replace(/\b\d{1,4}\b/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const filtered = normalized
+                    .split(/\s+/)
+                    .filter((part) => part && !stopWords.has(part.toLowerCase()))
+                    .join(' ')
+                    .trim();
+
+                if (filtered.length >= 3) {
+                    return titleCaseWords(filtered);
+                }
+            }
+
+            return titleCaseWords(splitCompactDomainWords(domainPart).replace(/[-_]+/g, ' '));
         } catch (error) {
             logger.warn(`Failed to build fallback hotel name from URL: ${error.message}`);
             return '';
@@ -97,9 +143,18 @@ function extractHotelInfo(data, context) {
 
     function normalizeCandidateName(value) {
         return cleanText(value)
-            .replace(/\s*[|\-–—:]\s*(official site|official website|book direct|best rate guaranteed).*$/i, '')
-            .replace(/^(welcome to|discover|stay at)\s+/i, '')
+            .replace(/^(welcome to|discover|stay at|experience|explore)\s+/i, '')
+            .replace(/\s*[|\-–—:]\s*(official site|official website|book direct|best rate guaranteed|luxury hotel.*|boutique hotel.*|hotel in .*|resort in .*).*$/i, '')
+            .replace(/\b(official site|official website|book direct|best rate guaranteed)\b/gi, '')
+            .replace(/\s+/g, ' ')
             .trim();
+    }
+
+    function splitCandidateSegments(value) {
+        return String(value || '')
+            .split(/\s*[|\-–—:]\s*/)
+            .map((segment) => normalizeCandidateName(segment))
+            .filter(Boolean);
     }
 
     function isLikelySeoTitle(value) {
@@ -115,12 +170,142 @@ function extractHotelInfo(data, context) {
             /^where to stay in\b/i,
             /^visit\b/i,
             /^travel\b/i,
+            /^book your stay in\b/i,
             /\bhotels? in\s+[a-z]/i,
-            /\bbook direct\b/i,
             /\bbest rate guaranteed\b/i
         ];
 
         return seoPatterns.some((pattern) => pattern.test(normalized));
+    }
+
+    function isJunkTitle(value) {
+        const normalized = String(value || '').trim();
+        if (!normalized) return true;
+
+        const junkTitles = ['Access Denied', 'Just a moment', 'DDoS-Guard', '403 Forbidden', 'Cloudflare', 'Checking your browser', 'Attention Required!'];
+        return junkTitles.some((junk) => normalized.toLowerCase().includes(junk.toLowerCase()));
+    }
+
+    function looksLikeHotelName(value) {
+        const normalized = String(value || '').trim();
+        if (!normalized || normalized.length < 3) return false;
+        if (isJunkTitle(normalized)) return false;
+
+        const hotelSignals = /\b(hotel|resort|suites|suite|inn|lodge|spa|palace|villa|apartments|boutique|hostel)\b/i;
+        const genericSignals = /\b(home|homepage|welcome|book now|special offers|gallery|contact us)\b/i;
+
+        if (hotelSignals.test(normalized)) return true;
+        if (genericSignals.test(normalized)) return false;
+
+        const words = normalized.split(/\s+/).filter(Boolean);
+        return words.length >= 2 && words.length <= 8;
+    }
+
+    function getDomainTokens(url) {
+        try {
+            const hostname = new URL(url).hostname.replace(/^www\./i, '');
+            return splitCompactDomainWords(hostname.split('.')[0])
+                .toLowerCase()
+                .split(/\s+/)
+                .filter(Boolean);
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function parseJsonLdCandidates(text) {
+        const candidates = [];
+        const visitNode = (node) => {
+            if (!node) return;
+            if (Array.isArray(node)) {
+                node.forEach(visitNode);
+                return;
+            }
+            if (typeof node !== 'object') return;
+
+            const typeValue = Array.isArray(node['@type']) ? node['@type'].join(' ') : String(node['@type'] || '');
+            const normalizedType = typeValue.toLowerCase();
+            const isHotelLikeType = ['hotel', 'lodgingbusiness', 'resort', 'hostel', 'motel'].some((type) => normalizedType.includes(type));
+
+            if (isHotelLikeType && node.name) {
+                candidates.push({ value: String(node.name), source: 'jsonld-hotel' });
+            }
+
+            if ((normalizedType.includes('organization') || normalizedType.includes('localbusiness')) && node.name) {
+                candidates.push({ value: String(node.name), source: 'jsonld-organization' });
+            }
+
+            if (node['@graph']) {
+                visitNode(node['@graph']);
+            }
+
+            Object.values(node).forEach((child) => {
+                if (child && typeof child === 'object') {
+                    visitNode(child);
+                }
+            });
+        };
+
+        try {
+            const parsed = JSON.parse(text);
+            visitNode(parsed);
+        } catch (error) {
+            logger.debug(`Failed to parse JSON-LD block for hotel name extraction: ${error.message}`);
+        }
+
+        return candidates;
+    }
+
+    function scoreCandidate(candidate, domainTokens) {
+        const normalized = normalizeCandidateName(candidate.value);
+        if (!normalized) {
+            return { ...candidate, normalized: '', score: -1000, rejectedReason: 'empty' };
+        }
+
+        let score = 0;
+        const lower = normalized.toLowerCase();
+        const words = normalized.split(/\s+/).filter(Boolean);
+
+        const sourceScores = {
+            'jsonld-hotel': 120,
+            'jsonld-organization': 95,
+            'meta-og-site-name': 90,
+            'meta-og-title': 82,
+            'meta-application-name': 80,
+            'meta-twitter-title': 78,
+            'meta-itemprop-name': 88,
+            'heading': 74,
+            'name-selector': 86,
+            'logo-alt': 68,
+            'title': 58,
+            'title-segment': 54,
+            'domain-fallback': 10
+        };
+
+        score += sourceScores[candidate.source] || 40;
+
+        if (looksLikeHotelName(normalized)) score += 25;
+        if (/\b(hotel|resort|suites|suite|inn|lodge|spa|palace|villa|apartments|boutique|hostel)\b/i.test(normalized)) score += 18;
+        if (words.length >= 2 && words.length <= 6) score += 10;
+        if (normalized.length >= 8 && normalized.length <= 60) score += 8;
+        if (candidate.source === 'title' || candidate.source === 'title-segment') {
+            if (/\b(official site|official website|book direct|best rate guaranteed)\b/i.test(candidate.value || '')) score -= 8;
+        }
+
+        const domainOverlap = domainTokens.filter((token) => token.length >= 3 && lower.includes(token));
+        score += Math.min(domainOverlap.length * 6, 18);
+
+        if (isLikelySeoTitle(normalized)) score -= 35;
+        if (isJunkTitle(normalized)) score -= 120;
+        if (/\b(home|homepage|gallery|contact us|special offers)\b/i.test(lower)) score -= 20;
+        if (words.length > 10) score -= 20;
+
+        return {
+            ...candidate,
+            normalized,
+            score,
+            rejectedReason: score < 40 ? 'low_score' : null
+        };
     }
 
     const result = {
@@ -144,17 +329,64 @@ function extractHotelInfo(data, context) {
 
     const dataArray = data.data || [];
     const candidateNames = [];
+    const domainTokens = getDomainTokens(context.hotel_website_url);
+
+    function pushCandidate(value, source) {
+        const normalized = normalizeCandidateName(value);
+        if (!normalized) return;
+        candidateNames.push({ value: normalized, source });
+    }
 
     dataArray.forEach(item => {
         const sel = item.selector.toLowerCase();
         const texts = item.results.map(r => cleanText(r.text)).filter(Boolean);
 
-        if (sel.includes('title') || sel.includes('name') || sel.includes('hotel-title') || sel.includes('headline')) {
-            candidateNames.push(...texts.map((text) => normalizeCandidateName(text)).filter(Boolean));
+        if (sel === 'title') {
+            texts.forEach((text) => {
+                pushCandidate(text, 'title');
+                splitCandidateSegments(text).forEach((segment) => pushCandidate(segment, 'title-segment'));
+            });
+        }
 
-            if (!result.hotel_name || result.hotel_name === 'Not found') {
-                result.hotel_name = normalizeCandidateName(texts[0]) || 'Not found';
-            }
+        if (sel.includes('itemprop="name"') || sel.includes('hotel-name') || sel.includes('hotel-title') || sel.includes('headline')) {
+            texts.forEach((text) => pushCandidate(text, 'name-selector'));
+        }
+
+        if (sel.includes('h1') || sel.includes('h2') || sel.includes('h3')) {
+            result.other_headings.push(...texts);
+            texts.forEach((text) => pushCandidate(text, 'heading'));
+        }
+
+        if (sel.includes('meta[')) {
+            item.results.forEach((entry) => {
+                const content = cleanText(entry.attributes?.find((attr) => attr.name === 'content')?.value || entry.text || '');
+                if (!content) return;
+
+                if (sel.includes('og:site_name')) pushCandidate(content, 'meta-og-site-name');
+                if (sel.includes('og:title')) {
+                    pushCandidate(content, 'meta-og-title');
+                    splitCandidateSegments(content).forEach((segment) => pushCandidate(segment, 'title-segment'));
+                }
+                if (sel.includes('application-name')) pushCandidate(content, 'meta-application-name');
+                if (sel.includes('twitter:title')) {
+                    pushCandidate(content, 'meta-twitter-title');
+                    splitCandidateSegments(content).forEach((segment) => pushCandidate(segment, 'title-segment'));
+                }
+                if (sel.includes('itemprop="name"')) pushCandidate(content, 'meta-itemprop-name');
+            });
+        }
+
+        if (sel.includes('application/ld+json')) {
+            texts.forEach((text) => {
+                parseJsonLdCandidates(text).forEach((candidate) => pushCandidate(candidate.value, candidate.source));
+            });
+        }
+
+        if (sel.includes('logo') || sel.includes('brand')) {
+            item.results.forEach((entry) => {
+                const alt = cleanText(entry.attributes?.find((attr) => attr.name === 'alt')?.value || entry.text || '');
+                if (alt) pushCandidate(alt, 'logo-alt');
+            });
         }
 
         if (sel.includes('address') || sel.includes('location')) {
@@ -193,39 +425,34 @@ function extractHotelInfo(data, context) {
                 return src.startsWith('http') ? { src, alt } : null;
             }).filter(Boolean);
         }
-
-        if (sel.includes('h1') || sel.includes('h2') || sel.includes('h3')) {
-            result.other_headings.push(...texts);
-        }
     });
+
+    const scoredCandidates = candidateNames
+        .map((candidate) => scoreCandidate(candidate, domainTokens))
+        .sort((a, b) => b.score - a.score);
+
+    const bestCandidate = scoredCandidates.find((candidate) => !candidate.rejectedReason);
+
+    if (bestCandidate?.normalized) {
+        result.hotel_name = bestCandidate.normalized;
+        logger.info(`Selected hotel name "${bestCandidate.normalized}" from source "${bestCandidate.source}" with score ${bestCandidate.score}.`);
+    } else {
+        logger.warn(`No strong hotel name candidate found for ${context.hotel_website_url}. Top candidates: ${JSON.stringify(scoredCandidates.slice(0, 5).map((candidate) => ({
+            value: candidate.normalized,
+            source: candidate.source,
+            score: candidate.score,
+            rejectedReason: candidate.rejectedReason
+        })))}.`);
+    }
 
     if (result.hotel_name.includes('Taj') || result.hotel_name.includes('Pierre')) {
         result.hotel_name = 'The Pierre, a Taj Hotel';
     }
 
-    // Task 7: Blacklist junk titles (Cloudflare, 403, etc.)
-    const JUNK_TITLES = ['Access Denied', 'Just a moment', 'DDoS-Guard', '403 Forbidden', 'Cloudflare', 'Checking your browser', 'Attention Required!'];
-    const bestCandidate = candidateNames.find((candidate) => {
-        if (!candidate) return false;
-        if (JUNK_TITLES.some((junk) => candidate.includes(junk))) return false;
-        if (isLikelySeoTitle(candidate)) return false;
-        return candidate.length >= 3;
-    });
-
-    if (bestCandidate && bestCandidate !== result.hotel_name) {
-        logger.info(`Replacing weak scraped hotel title "${result.hotel_name}" with stronger candidate "${bestCandidate}".`);
-        result.hotel_name = bestCandidate;
-    }
-
-    if (JUNK_TITLES.some(j => result.hotel_name.includes(j)) || isLikelySeoTitle(result.hotel_name)) {
-        logger.warn(`Junk or SEO title detected: "${result.hotel_name}". Clearing title to force fallback inference.`);
-        result.hotel_name = '';
-    }
-
-    if (!result.hotel_name || result.hotel_name === 'Not found') {
+    if (!result.hotel_name || result.hotel_name === 'Not found' || isJunkTitle(result.hotel_name)) {
         const fallbackName = buildDomainFallbackName(context.hotel_website_url);
         if (fallbackName) {
-            logger.warn(`Hotel title missing after scraping. Using domain fallback: "${fallbackName}".`);
+            logger.warn(`Hotel title missing after scoring. Using domain fallback: "${fallbackName}".`);
             result.hotel_name = fallbackName;
         }
     }
